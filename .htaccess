@@ -1,0 +1,79 @@
+Options -Indexes
+ServerSignature Off
+
+RewriteEngine On
+
+# Public API: pass the Authorization header to PHP and route /api/v1/* to the API front controller
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+RewriteCond %{REQUEST_URI} !/api/v1/index\.php$
+RewriteRule ^api/v1/?(.*)$ /api/v1/index.php [L,QSA]
+
+RewriteRule ^qr/([a-zA-Z0-9_-]+)/?$ /qr/index.php?t=$1 [L,QSA]
+
+RewriteCond %{REQUEST_URI} ^/$
+RewriteCond %{DOCUMENT_ROOT}/index.html -f
+RewriteRule ^$ /index.html [L]
+
+# Private folders — never served over HTTP
+RewriteRule ^(includes|config|cron|storage|migrations|deploy|local-setup)(/|$) - [F,L]
+RewriteRule ^assets/media_cache(/|$) - [F,L]
+
+# Dotfiles (.env, .git, .htaccess …) and non-public file types
+RewriteRule (^|/)\. - [F,L]
+<FilesMatch "\.(env|log|sql|lock|git|md|txt|zip|bak|ini|sh|example|production)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+<FilesMatch "^robots\.txt$">
+  <IfModule mod_authz_core.c>
+    Require all granted
+  </IfModule>
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  Header always unset X-Powered-By
+  Header unset X-Powered-By
+</IfModule>
+
+# Errors are never shown to visitors; they are logged to storage/logs (see config/config.php)
+<IfModule mod_php8.c>
+  php_flag display_errors Off
+  php_flag log_errors On
+  php_flag expose_php Off
+  php_value upload_max_filesize 20M
+  php_value post_max_size 22M
+  php_value max_execution_time 120
+  php_value memory_limit 256M
+</IfModule>
+
+<IfModule mod_php.c>
+  php_flag display_errors Off
+  php_flag log_errors On
+  php_flag expose_php Off
+  php_value upload_max_filesize 20M
+  php_value post_max_size 22M
+  php_value max_execution_time 120
+  php_value memory_limit 256M
+</IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/png "access plus 1 month"
+  ExpiresByType image/jpeg "access plus 1 month"
+  ExpiresByType text/css "access plus 1 week"
+  ExpiresByType application/javascript "access plus 1 week"
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css application/javascript application/json
+</IfModule>
