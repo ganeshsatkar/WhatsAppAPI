@@ -49,10 +49,11 @@ input:focus { border-color:var(--accent);box-shadow:0 0 0 3px var(--glow); }
 .alert-e { background:rgba(255,77,109,0.1);border:1px solid rgba(255,77,109,0.3);border-radius:8px;padding:11px;color:var(--danger);font-size:14px;margin-bottom:18px; }
 a { color:var(--accent);text-decoration:none;font-size:14px; }
 </style>
+<?php include __DIR__ . '/includes/pwa_head.php'; ?>
 </head>
 <body>
 <div class="card">
-  <div class="logo">WP <span>API</span></div>
+  <div class="logo">WP API <span>Pro</span></div>
   <?php if (!$user): ?>
     <h2>Link expired</h2>
     <p class="sub">This reset link is invalid or has expired. Please request a new one.</p>
@@ -73,5 +74,6 @@ a { color:var(--accent);text-decoration:none;font-size:14px; }
   <?php endif; ?>
   <div style="text-align:center;margin-top:20px;"><a href="/login.php">← Back to Login</a></div>
 </div>
+<?php include __DIR__ . '/includes/pwa_footer.php'; ?>
 </body>
 </html>

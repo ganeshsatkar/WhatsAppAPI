@@ -33,11 +33,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $apiToken   = generateToken(64);
             $verifyTok  = generateToken(32);
 
-            // New accounts start WITHOUT an active plan: the owner activates a trial / plan from the admin panel (or the user buys one from wallet).
-            $trialId = (int)(db()->row("SELECT id FROM plans WHERE slug='trial'")['id'] ?? 1);
+            // New accounts get the trial plan; activatePlan() below starts it when AUTO_TRIAL_DAYS > 0.
+            $trialRow = db()->row("SELECT id FROM plans WHERE slug='trial' AND is_active=1");
+            $trialId  = (int)($trialRow['id'] ?? 0);
             $userId = db()->insert(
                 'INSERT INTO users (name, email, password, role, plan_id, api_token, verify_token) VALUES (?,?,?,?,?,?,?)',
-                [$name, $email, $hashed, 'user', $trialId, $apiToken, $verifyTok]
+                [$name, $email, $hashed, 'user', $trialId ?: 1, $apiToken, $verifyTok]
             );
 
             db()->run('INSERT INTO user_profiles (user_id, company_name, phone, timezone) VALUES (?,?,?,?)', [$userId, $company_name, $phone ?: null, APP_TIMEZONE]);
@@ -45,12 +46,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             db()->run('INSERT IGNORE INTO wallets (user_id, balance) VALUES (?,0)', [$userId]);
             loginFailed('register:' . clientIp());   // counts sign-ups per IP for throttling
 
+            // Self-serve start: every feature for AUTO_TRIAL_DAYS days (activatePlan allows one trial per user)
+            if (AUTO_TRIAL_DAYS > 0 && $trialId) {
+                activatePlan((int)$userId, $trialId, AUTO_TRIAL_DAYS, ['source' => 'auto_trial', 'note' => 'Automatic trial on sign-up']);
+            }
+
             $link = APP_URL . '/verify-email.php?token=' . $verifyTok;
             sendMail($email, 'Verify your email — ' . APP_NAME, mailLayout('Welcome, ' . $name . '!',
                 '<p>Thanks for signing up. Please confirm your email address.</p>', 'Verify Email', $link));
 
             logActivity('register', 'New user registered: ' . $email, (int)$userId);
-            $success = 'Account created! We sent a verification link to ' . e($email) . '. You can <a href="/login.php">sign in</a> now.';
+            $success = 'Account created' . ((AUTO_TRIAL_DAYS > 0 && $trialId) ? ' with a ' . AUTO_TRIAL_DAYS . '-day free trial — every feature unlocked' : '') . '! We sent a verification link to ' . e($email) . '. <a href="/login.php">Sign in now →</a>';
         }
     }
 }
@@ -95,12 +101,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   .plan-badge { display: inline-block; background: rgba(37,211,102,0.1); border: 1px solid rgba(37,211,102,0.3); color: var(--accent); font-size: 12px; padding: 3px 10px; border-radius: 20px; margin-bottom: 24px; }
   @media (max-width: 480px) { .card { padding: 32px 24px; } .grid2 { grid-template-columns: 1fr; } }
 </style>
+<?php include __DIR__ . '/includes/pwa_head.php'; ?>
 </head>
 <body>
 <div class="card">
   <div class="logo">
     <div class="logo-icon">💬</div>
-    <div class="logo-text">Whats<span>Flow</span> Pro</div>
+    <div class="logo-text">WP API <span>Pro</span></div>
   </div>
 
   <?php if ($success): ?>
@@ -109,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   <h2>Create your account</h2>
   <p class="subtitle">Start free — no credit card required</p>
-  <span class="plan-badge">✦ Plans from ₹599/month · plan activated after sign-up</span>
+  <span class="plan-badge">✦ <?= AUTO_TRIAL_DAYS > 0 ? AUTO_TRIAL_DAYS . '-day free trial · then plans from ₹599/month' : 'Plans from ₹599/month' ?></span>
 
   <?php if ($error): ?>
   <div class="error-box">⚠ <?= e($error) ?></div>
@@ -140,6 +147,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <input type="password" name="password" placeholder="Min. 8 characters" required>
     </div>
     <button type="submit" class="btn">Create Free Account →</button>
+    <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.6;">
+      By creating an account you agree to our <a href="/terms.php" class="link">Terms of Service</a>,
+      <a href="/privacy.php" class="link">Privacy Policy</a> and <a href="/refund.php" class="link">Refund Policy</a>.
+    </p>
   </form>
 
   <?php endif; ?>
@@ -148,5 +159,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Already have an account? <a href="/login.php" class="link">Sign in</a>
   </div>
 </div>
+<?php include __DIR__ . '/includes/pwa_footer.php'; ?>
 </body>
 </html>

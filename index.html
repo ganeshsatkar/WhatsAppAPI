@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WhatsFlow Pro — WhatsApp Business Automation</title>
+<title>WP API Pro — WhatsApp Business Automation</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
@@ -31,6 +31,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:999;height:62px;display:flex;ali
 .logo-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--g),var(--g2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 20px rgba(37,211,102,0.3);}
 .logo-text{font-size:17px;font-weight:900;color:#fff;}
 .logo-text span{color:var(--g);}
+[hidden]{display:none !important;}
 .nav-links{display:flex;gap:30px;list-style:none;}
 .nav-links a{color:var(--text2);text-decoration:none;font-size:14px;font-weight:500;transition:color .2s;}
 .nav-links a:hover{color:var(--g);}
@@ -179,6 +180,15 @@ footer{background:var(--ink2);border-top:1px solid var(--border);padding:56px 5%
   .stat{border-right:none;border-bottom:1px solid var(--border);}
 }
 </style>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#080d14">
+<meta name="application-name" content="WP API Pro">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="WP API Pro">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png">
+<link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
 </head>
 <body>
 
@@ -186,17 +196,18 @@ footer{background:var(--ink2);border-top:1px solid var(--border);padding:56px 5%
 <nav>
   <a class="logo" href="/">
     <div class="logo-mark">💬</div>
-    <div class="logo-text">Whats<span>Flow</span> Pro</div>
+    <div class="logo-text">WP API <span>Pro</span></div>
   </a>
   <ul class="nav-links">
     <li><a href="#features">Features</a></li>
     <li><a href="#how">How It Works</a></li>
     <li><a href="#pricing">Pricing</a></li>
-    <li><a href="#">Docs</a></li>
+    <li><a href="#faq">FAQ</a></li>
   </ul>
   <div class="nav-btns">
-    <a href="https://wpapi.grdpinfotech.com/login.php" class="btn btn-ghost">Log In</a>
-    <a href="https://wpapi.grdpinfotech.com/register.php" class="btn btn-green">Start Free →</a>
+    <button type="button" class="btn btn-ghost" data-install hidden>📲 Install</button>
+    <a href="/login.php" class="btn btn-ghost">Log In</a>
+    <a href="/register.php" class="btn btn-green">Start Free →</a>
   </div>
 </nav>
 
@@ -210,33 +221,33 @@ footer{background:var(--ink2);border-top:1px solid var(--border);padding:56px 5%
       <h1>Automate, <em>Engage</em><br>& Grow with<br><span class="gold">WhatsApp</span></h1>
       <p class="hero-sub">Send bulk campaigns, build intelligent chatbots, manage your team inbox, and track every lead — all in one platform built for modern businesses.</p>
       <div class="hero-ctas">
-        <a href="https://wpapi.grdpinfotech.com/register.php" class="btn btn-green btn-lg">Start Free Trial →</a>
-        <a href="https://wpapi.grdpinfotech.com/login.php" class="btn btn-outline btn-lg">Log In</a>
+        <a href="/register.php" class="btn btn-green btn-lg">Start Free Trial →</a>
+        <a href="/login.php" class="btn btn-outline btn-lg">Log In</a>
       </div>
       <div class="trust">
         <div class="trust-item">🔒 No credit card</div>
-        <div class="trust-item">⚡ Setup in 5 min</div>
-        <div class="trust-item">✅ Meta approved</div>
+        <div class="trust-item">🎁 7-day free trial</div>
+        <div class="trust-item">✅ Official WhatsApp Cloud API</div>
       </div>
     </div>
     <div class="hero-right">
       <div class="phone-wrap">
-        <div class="fcard fc1"><div class="fcard-val">98.5%</div><div class="fcard-lbl">Delivery Rate</div></div>
+        <div class="fcard fc1"><div class="fcard-val">✓✓ Read</div><div class="fcard-lbl">Live delivery ticks</div></div>
         <div class="phone">
           <div class="p-notch"></div>
           <div class="wa-top">
-            <div class="wa-av">WF</div>
-            <div><div class="wa-name">WhatsFlow Business</div><div class="wa-online">● Online</div></div>
+            <div class="wa-av">WP</div>
+            <div><div class="wa-name">WP API Pro</div><div class="wa-online">● Online</div></div>
           </div>
           <div class="wa-body">
             <div class="wm wm-in">Hi! Tell me about your plans 👋</div>
-            <div class="wm wm-out">Welcome to WhatsFlow! 🎉 Plans start at just ₹599/mo.</div>
+            <div class="wm wm-out">Welcome to WP API Pro! 🎉 Plans start at just ₹599/mo.</div>
             <div class="wm wm-in">Can I try it first?</div>
             <div class="wm wm-out">Yes! 7-day free trial with every feature unlocked ✅</div>
           </div>
         </div>
-        <div class="fcard fc2"><div class="fcard-val">2.4M+</div><div class="fcard-lbl">Daily Messages</div></div>
-        <div class="fcard fc3"><div class="fcard-val">50K+</div><div class="fcard-lbl">Businesses</div></div>
+        <div class="fcard fc2"><div class="fcard-val">🤖 24/7</div><div class="fcard-lbl">Chatbot replies</div></div>
+        <div class="fcard fc3"><div class="fcard-val">₹0</div><div class="fcard-lbl">Setup fee</div></div>
       </div>
     </div>
   </div>
@@ -244,11 +255,11 @@ footer{background:var(--ink2);border-top:1px solid var(--border);padding:56px 5%
 
 <!-- STATS -->
 <div class="stats">
-  <div class="stat"><div class="stat-n">50K+</div><div class="stat-l">Businesses</div></div>
-  <div class="stat"><div class="stat-n">98.5%</div><div class="stat-l">Delivery Rate</div></div>
-  <div class="stat"><div class="stat-n">2.4M</div><div class="stat-l">Msgs / Day</div></div>
-  <div class="stat"><div class="stat-n">4.9★</div><div class="stat-l">Rating</div></div>
-  <div class="stat"><div class="stat-n">99.9%</div><div class="stat-l">Uptime</div></div>
+  <div class="stat"><div class="stat-n">7 days</div><div class="stat-l">Free trial</div></div>
+  <div class="stat"><div class="stat-n">₹0</div><div class="stat-l">Setup fee</div></div>
+  <div class="stat"><div class="stat-n">Pay</div><div class="stat-l">only per message</div></div>
+  <div class="stat"><div class="stat-n">📱 App</div><div class="stat-l">Install on your phone</div></div>
+  <div class="stat"><div class="stat-n">🇮🇳</div><div class="stat-l">Made in India · INR billing</div></div>
 </div>
 
 <!-- FEATURES -->
@@ -256,12 +267,12 @@ footer{background:var(--ink2);border-top:1px solid var(--border);padding:56px 5%
   <div class="sec-wrap sec-center">
     <div class="sec-tag">Features</div>
     <h2 class="sec-h">Everything You Need on WhatsApp</h2>
-    <p class="sec-sub">From broadcasts to intelligent bots — WhatsFlow Pro covers every touchpoint.</p>
+    <p class="sec-sub">From broadcasts to intelligent bots — WP API Pro covers every touchpoint.</p>
     <div class="feat-grid">
       <div class="feat"><div class="feat-ic">📢</div><div class="feat-t">Bulk Broadcasting</div><div class="feat-d">Send personalised messages to thousands instantly with dynamic variables, rich media, and smart scheduling.</div></div>
       <div class="feat"><div class="feat-ic">🤖</div><div class="feat-t">Chatbot Builder</div><div class="feat-d">Visual drag-and-drop flow builder. Build bots that handle enquiries, leads, and support 24/7 — no code needed.</div></div>
       <div class="feat"><div class="feat-ic">👥</div><div class="feat-t">CRM & Contacts</div><div class="feat-d">Manage contacts with tags, segments, notes, and full conversation history in a shared team inbox.</div></div>
-      <div class="feat"><div class="feat-ic">📊</div><div class="feat-t">Analytics Dashboard</div><div class="feat-d">Real-time delivery, read rates, CTR, and conversion tracking with exportable reports for every campaign.</div></div>
+      <div class="feat"><div class="feat-ic">📊</div><div class="feat-t">Analytics Dashboard</div><div class="feat-d">Live sent, delivered, read and reply counts for every campaign, with failure reasons and CSV reports.</div></div>
       <div class="feat"><div class="feat-ic">📱</div><div class="feat-t">QR Lead Generation</div><div class="feat-d">Create trackable QR codes and assign to salespersons. Measure every scan to conversion accurately.</div></div>
       <div class="feat"><div class="feat-ic">⚡</div><div class="feat-t">Automation Rules</div><div class="feat-d">Trigger welcome messages, follow-ups, and tag rules automatically based on contact behaviour.</div></div>
     </div>
@@ -275,9 +286,9 @@ footer{background:var(--ink2);border-top:1px solid var(--border);padding:56px 5%
     <h2 class="sec-h">Live in Four Simple Steps</h2>
     <p class="sec-sub">No technical expertise needed. Launch your first campaign in under 10 minutes.</p>
     <div class="steps">
-      <div class="step"><div class="step-n">1</div><h4>Create Account</h4><p>Sign up free, pick your plan, and set up your business profile in minutes.</p></div>
+      <div class="step"><div class="step-n">1</div><h4>Create Account</h4><p>Sign up free — your 7-day trial with every feature starts instantly.</p></div>
       <div class="step"><div class="step-n">2</div><h4>Connect WhatsApp</h4><p>Link your number via Meta's official API — guided step by step.</p></div>
-      <div class="step"><div class="step-n">3</div><h4>Import Contacts</h4><p>Upload CSV or sync from your CRM. Create smart segments for targeting.</p></div>
+      <div class="step"><div class="step-n">3</div><h4>Import Contacts</h4><p>Upload a CSV or add contacts one by one. Group them with tags and lists.</p></div>
       <div class="step"><div class="step-n">4</div><h4>Launch & Grow</h4><p>Send campaigns, watch real-time analytics, and optimise every time.</p></div>
     </div>
   </div>
@@ -293,7 +304,7 @@ footer{background:var(--ink2);border-top:1px solid var(--border);padding:56px 5%
       <div class="price">
         <div class="price-name">Trial</div>
         <div class="price-amt"><sup>₹</sup>0<small>/7 days</small></div>
-        <div class="price-desc">Every feature unlocked for 7 days — activated by our team after sign-up.</div>
+        <div class="price-desc">Every feature unlocked for 7 days — starts automatically when you sign up.</div>
         <ul class="price-feats">
           <li>All Platform features</li><li>Bulk campaigns</li><li>Shared team inbox</li>
           <li>Chatbot builder</li><li>Automation</li><li>Developer API</li>
@@ -327,15 +338,15 @@ footer{background:var(--ink2);border-top:1px solid var(--border);padding:56px 5%
   </div>
 </section>
 
-<!-- TESTIMONIALS -->
-<section class="sec" style="background:linear-gradient(180deg,transparent,rgba(37,211,102,0.01),transparent);">
+<!-- FAQ -->
+<section class="sec" id="faq" style="background:linear-gradient(180deg,transparent,rgba(37,211,102,0.01),transparent);">
   <div class="sec-wrap sec-center">
-    <div class="sec-tag">Testimonials</div>
-    <h2 class="sec-h">Loved by 50,000+ Businesses</h2>
-    <div class="testi-grid">
-      <div class="testi"><div class="stars">★★★★★</div><div class="testi-txt">"WhatsFlow Pro transformed our sales. Open rates jumped from 22% to 89% after switching to WhatsApp campaigns."</div><div class="testi-auth"><div class="tav" style="background:linear-gradient(135deg,var(--g),#7fffd4)">RS</div><div><div class="tav-name">Rahul Sharma</div><div class="tav-role">CEO, TechMart India</div></div></div></div>
-      <div class="testi"><div class="stars">★★★★★</div><div class="testi-txt">"The chatbot builder is incredible. We automated 80% of support queries in one afternoon. Zero coding needed."</div><div class="testi-auth"><div class="tav" style="background:linear-gradient(135deg,var(--blue),#80d8ff)">PM</div><div><div class="tav-name">Priya Mehta</div><div class="tav-role">Marketing Head, ShopEasy</div></div></div></div>
-      <div class="testi"><div class="stars">★★★★★</div><div class="testi-txt">"QR lead tracking alone paid for the entire subscription. We know exactly which salesperson generates the most leads."</div><div class="testi-auth"><div class="tav" style="background:linear-gradient(135deg,var(--gold),#ffe57f)">AK</div><div><div class="tav-name">Arjun Kumar</div><div class="tav-role">Sales Director, GrowthCo</div></div></div></div>
+    <div class="sec-tag">FAQ</div>
+    <h2 class="sec-h">Questions, Answered</h2>
+    <div class="testi-grid" style="text-align:left;">
+      <div class="testi"><div class="tav-name" style="margin-bottom:8px;">What do I need to start?</div><div class="testi-txt" style="font-style:normal;">A phone number that is not already on the WhatsApp app, and a free Meta Business account. Our step-by-step guide connects it to the official WhatsApp Cloud API.</div></div>
+      <div class="testi"><div class="tav-name" style="margin-bottom:8px;">How are messages charged?</div><div class="testi-txt" style="font-style:normal;">You pay a fixed plan fee plus a per-message charge from a prepaid wallet (Marketing, Utility or Authentication). Replies to customers within 24 hours of their message are free.</div></div>
+      <div class="testi"><div class="tav-name" style="margin-bottom:8px;">Is my number safe from bans?</div><div class="testi-txt" style="font-style:normal;">We use only Meta’s official API, approved templates and automatic opt-out (customers can reply STOP). Message only customers who agreed to hear from you.</div></div>
     </div>
   </div>
 </section>
@@ -346,8 +357,8 @@ footer{background:var(--ink2);border-top:1px solid var(--border);padding:56px 5%
     <div class="cta-band">
       <div class="sec-tag">Get Started Today</div>
       <h2 class="sec-h">Ready to Transform Your WhatsApp?</h2>
-      <p class="sec-sub" style="margin-bottom:30px;">Join 50,000+ businesses. Start free, upgrade when ready.</p>
-      <a href="https://wpapi.grdpinfotech.com/register.php" class="btn btn-green btn-lg">Start Free — No Card Needed →</a>
+      <p class="sec-sub" style="margin-bottom:30px;">Start your 7-day free trial today. Upgrade only when you are happy.</p>
+      <a href="/register.php" class="btn btn-green btn-lg">Start Free — No Card Needed →</a>
     </div>
   </div>
 </section>
@@ -357,20 +368,56 @@ footer{background:var(--ink2);border-top:1px solid var(--border);padding:56px 5%
   <div class="ft-inner">
     <div class="ft-grid">
       <div class="ft-brand">
-        <div class="logo"><div class="logo-mark">💬</div><div class="logo-text">Whats<span>Flow</span> Pro</div></div>
-        <p>India's most trusted WhatsApp Business API platform. Powering 50,000+ businesses with intelligent messaging automation.</p>
-        <p style="margin-top:8px;font-size:12px;color:var(--muted);">wpapi.grdpinfotech.com</p>
+        <div class="logo"><div class="logo-mark">💬</div><div class="logo-text">WP API <span>Pro</span></div></div>
+        <p>WhatsApp campaigns, team inbox, chatbots and automation for Indian businesses — on Meta’s official WhatsApp Cloud API.</p>
+        <p style="margin-top:8px;font-size:12px;color:var(--muted);">A product of GRDP InfoTech</p>
       </div>
-      <div class="ft-col"><h5>Product</h5><ul><li><a href="#">Features</a></li><li><a href="#">Pricing</a></li><li><a href="#">Changelog</a></li><li><a href="#">Roadmap</a></li></ul></div>
-      <div class="ft-col"><h5>Developers</h5><ul><li><a href="#">API Docs</a></li><li><a href="#">Webhooks</a></li><li><a href="#">SDKs</a></li><li><a href="#">Status</a></li></ul></div>
-      <div class="ft-col"><h5>Company</h5><ul><li><a href="#">About</a></li><li><a href="#">Blog</a></li><li><a href="#">Careers</a></li><li><a href="https://wpapi.grdpinfotech.com/login.php">Login</a></li></ul></div>
+      <div class="ft-col"><h5>Product</h5><ul><li><a href="#features">Features</a></li><li><a href="#pricing">Pricing</a></li><li><a href="#faq">FAQ</a></li><li><a href="/register.php">Start free trial</a></li></ul></div>
+      <div class="ft-col"><h5>Company</h5><ul><li><a href="/contact.php">Contact us</a></li><li><a href="/login.php">Login</a></li></ul></div>
+      <div class="ft-col"><h5>Legal</h5><ul><li><a href="/privacy.php">Privacy Policy</a></li><li><a href="/terms.php">Terms of Service</a></li><li><a href="/refund.php">Refund &amp; Cancellation</a></li><li><a href="/shipping.php">Service Delivery</a></li></ul></div>
     </div>
     <div class="ft-bottom">
-      <p>© 2025 WhatsFlow Pro by GRDP InfoTech · All rights reserved</p>
-      <p>Privacy Policy · Terms of Service</p>
+      <p>© 2026 WP API Pro by GRDP InfoTech · All rights reserved</p>
+      <p><a href="/privacy.php" style="color:inherit;">Privacy</a> · <a href="/terms.php" style="color:inherit;">Terms</a> · <a href="/refund.php" style="color:inherit;">Refunds</a> · <a href="/contact.php" style="color:inherit;">Contact</a></p>
     </div>
   </div>
 </footer>
 
+<script>
+(function () {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+  }
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const btns = () => document.querySelectorAll('#installBtn, [data-install]');
+  let deferred = null;
+
+  // Android / Chrome / Edge: native install prompt
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferred = e;
+    btns().forEach(b => b.hidden = false);
+  });
+  window.addEventListener('appinstalled', () => { deferred = null; btns().forEach(b => b.hidden = true); });
+
+  // iPhone / iPad Safari has no prompt: show the button with Add-to-Home-Screen steps
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  if (ios && !standalone) btns().forEach(b => b.hidden = false);
+
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('#installBtn, [data-install]');
+    if (!b) return;
+    e.preventDefault();
+    if (deferred) {
+      deferred.prompt();
+      await deferred.userChoice;
+      deferred = null;
+      btns().forEach(x => x.hidden = true);
+    } else if (ios) {
+      alert('Install WP API Pro:\n\n1. Tap the Share button (square with ↑) in Safari\n2. Choose "Add to Home Screen"\n3. Tap "Add"');
+    }
+  });
+})();
+</script>
 </body>
 </html>

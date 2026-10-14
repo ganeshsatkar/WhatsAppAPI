@@ -1,0 +1,25 @@
+{
+  "name": "WP API Pro — WhatsApp Business",
+  "short_name": "WP API Pro",
+  "description": "WhatsApp campaigns, team inbox, chatbots and automation for your business.",
+  "id": "/?app=wpapi-pro",
+  "start_url": "/user/dashboard.php?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#060810",
+  "theme_color": "#080d14",
+  "lang": "en-IN",
+  "categories": ["business", "productivity", "communication"],
+  "icons": [
+    { "src": "/assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Inbox", "url": "/user/inbox.php?source=pwa", "icons": [{ "src": "/assets/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "New Campaign", "url": "/user/campaigns.php?source=pwa", "icons": [{ "src": "/assets/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Contacts", "url": "/user/contacts.php?source=pwa", "icons": [{ "src": "/assets/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

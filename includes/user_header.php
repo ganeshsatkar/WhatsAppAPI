@@ -13,6 +13,7 @@ $subState    = subscriptionState((int)$user['id']);
 $nav = [
     ['icon'=>'⬡',  'label'=>'Dashboard',  'href'=>'/user/dashboard.php'],
     ['icon'=>'👥',  'label'=>'Contacts',   'href'=>'/user/contacts.php'],
+    ['icon'=>'🗂️',  'label'=>'Lists & Tags', 'href'=>'/user/segments.php'],
     ['icon'=>'📋',  'label'=>'Templates',  'href'=>'/user/templates.php'],
     ['icon'=>'📢',  'label'=>'Campaigns',  'href'=>'/user/campaigns.php'],
     ['icon'=>'💬',  'label'=>'Inbox',      'href'=>'/user/inbox.php', 'badge'=>$openChats],
@@ -25,6 +26,7 @@ $nav = [
     ['icon'=>'💰',  'label'=>'Wallet',      'href'=>'/user/wallet.php'],
     ['icon'=>'📊',  'label'=>'Analytics',  'href'=>'/user/analytics.php'],
     ['icon'=>'💳',  'label'=>'Billing & Plan', 'href'=>'/user/billing.php'],
+    ['icon'=>'🔔',  'label'=>'Notifications', 'href'=>'/user/notifications.php', 'badge'=>$unread],
     ['icon'=>'⚙️',  'label'=>'Settings',   'href'=>'/user/settings.php'],
 ];
 
@@ -43,8 +45,9 @@ $adminNav = [
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title><?= e($pageTitle ?? 'Dashboard') ?> — WP API</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title><?= e($pageTitle ?? 'Dashboard') ?> — <?= e(APP_NAME) ?></title>
+<?php include __DIR__ . '/pwa_head.php'; ?>
 <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -98,6 +101,7 @@ body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'Cabine
 .topbar-right{display:flex;align-items:center;gap:10px;}
 .tb-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 9px;cursor:pointer;color:var(--text2);font-size:14px;text-decoration:none;transition:all .15s;position:relative;}
 .tb-btn:hover{border-color:var(--accent);color:var(--accent);}
+.tb-count{position:absolute;top:-6px;right:-6px;background:var(--danger);color:#fff;font-size:9.5px;font-weight:800;min-width:17px;height:17px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--sidebar);}
 .tb-dot{position:absolute;top:-3px;right:-3px;background:var(--danger);width:8px;height:8px;border-radius:50%;border:2px solid var(--sidebar);}
 .admin-badge{background:var(--purple-dim);border:1px solid rgba(155,124,244,0.3);color:var(--purple);font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;}
 
@@ -202,21 +206,73 @@ textarea.form-control{resize:vertical;min-height:90px;}
 .search-box input{background:none;border:none;outline:none;color:var(--text);font-family:'Cabinet Grotesk',sans-serif;font-size:13px;width:160px;}
 .search-box input::placeholder{color:var(--muted);}
 
+/* MOBILE CHROME (hidden on desktop) */
+.tb-menu{display:none;background:none;border:none;color:var(--text);font-size:22px;line-height:1;cursor:pointer;padding:6px 8px 6px 0;}
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99;}
+.bnav{display:none;}
+.install-btn[hidden]{display:none !important;}
+
 @media(max-width:768px){
-  .sidebar{transform:translateX(-100%);transition:transform .25s;}
-  .main-wrap{margin-left:0;}
-  .page-content{padding:16px;}
-  .g2,.g21,.g3{grid-template-columns:1fr;}
-  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  body{display:block;}
+  .sidebar{transform:translateX(-100%);transition:transform .25s ease;width:min(280px,84vw);z-index:200;box-shadow:8px 0 30px rgba(0,0,0,0.5);padding-bottom:env(safe-area-inset-bottom);}
+  body.menu-open .sidebar{transform:translateX(0);}
+  body.menu-open .sb-overlay{display:block;z-index:150;}
+  body.menu-open{overflow:hidden;}
+  .sb-item{padding:12px 12px;font-size:14px;}
+  .main-wrap{margin-left:0;min-height:100dvh;}
+  .topbar{padding:0 12px;padding-top:env(safe-area-inset-top);height:calc(56px + env(safe-area-inset-top));}
+  .tb-menu{display:block;}
+  .topbar-title{font-size:1.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;}
+  .topbar-right{gap:6px;}
+  .admin-badge{display:none;}
+  .tb-btn{padding:8px 10px;}
+  .page-content{padding:12px 12px calc(84px + env(safe-area-inset-bottom));min-width:0;}
+  .admin-banner{display:none;}                 /* admin tools are in the ☰ menu */
+
+  /* Bottom navigation */
+  .bnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:120;background:rgba(8,13,20,0.97);backdrop-filter:blur(10px);border-top:1px solid var(--border2);padding-bottom:env(safe-area-inset-bottom);}
+  .bnav a,.bnav button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:60px;color:var(--text2);text-decoration:none;font-size:10.5px;font-weight:700;background:none;border:none;font-family:inherit;cursor:pointer;position:relative;}
+  .bnav .bn-ic{font-size:20px;line-height:1;}
+  .bnav .on{color:var(--accent);}
+  .bnav .bn-badge{position:absolute;top:7px;left:calc(50% + 6px);background:var(--danger);color:#fff;font-size:9.5px;font-weight:800;min-width:17px;height:17px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;}
+
+  /* Layout: nothing wider than the screen */
+  .g2,.g21,.g3{grid-template-columns:minmax(0,1fr);}
+  .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  .stat-card{padding:14px;}
+  .stat-value{font-size:22px;}
+  .page-content [style*="grid-template-columns"]:not([style*="repeat("]){grid-template-columns:minmax(0,1fr) !important;}
+  .page-content [style*="justify-content:space-between"]{flex-wrap:wrap;gap:8px;}
+  .page-content > *, .card, .g2 > *, .g3 > *, .g21 > *{min-width:0;}
+  .card-header{flex-wrap:wrap;gap:8px;padding:12px 14px;}
+  .card-body{padding:14px;}
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;}
+  th,td{padding:10px 12px;white-space:nowrap;}
+  img,video,iframe,canvas,svg{max-width:100%;}
+  .search-box{width:100%;}
+  .search-box input{width:100%;}
+
+  /* Touch: bigger targets, no iOS zoom on focus */
+  .btn{min-height:42px;padding:10px 16px;}
+  .btn-sm{min-height:36px;padding:7px 12px;}
+  .form-control,select,textarea,input[type=text],input[type=email],input[type=tel],input[type=number],input[type=password],input[type=search],input[type=url]{font-size:16px;}
+
+  /* Modals become bottom sheets */
+  .modal-overlay{align-items:flex-end;padding:0;}
+  .modal{max-width:100% !important;width:100%;border-radius:18px 18px 0 0;padding:22px 16px calc(18px + env(safe-area-inset-bottom));max-height:92dvh;}
+  .modal-footer{flex-wrap:wrap;}
+  .modal-footer .btn{flex:1;justify-content:center;}
+
 }
 </style>
 </head>
 <body>
 
-<aside class="sidebar">
+<div class="sb-overlay" onclick="toggleMenu(false)"></div>
+<aside class="sidebar" id="sidebar" aria-label="Main menu">
   <a href="/user/dashboard.php" class="sb-logo">
     <div class="sb-logo-mark">💬</div>
-    <div class="sb-logo-text">WP <span>API</span></div>
+    <div class="sb-logo-text">WP API <span>Pro</span></div>
   </a>
   <div class="sb-user">
     <div class="sb-av" style="background:linear-gradient(135deg,<?= $isSuperAdmin ? '#9b7cf4,#7c3aed' : 'var(--accent),var(--accent2)' ?>);">
@@ -264,12 +320,14 @@ textarea.form-control{resize:vertical;min-height:90px;}
         <a href="/user/billing.php" style="margin-left:auto;font-size:11px;color:var(--accent);text-decoration:none;">↑ Upgrade</a>
       <?php endif; ?>
     </div>
+    <button type="button" class="logout-a install-btn" id="installBtn" style="background:var(--accent-dim);border-color:rgba(37,211,102,0.3);color:var(--accent);margin-bottom:8px;" hidden>📲 Install app</button>
     <a href="/logout.php" class="logout-a">⏏ Logout</a>
   </div>
 </aside>
 
 <div class="main-wrap">
   <div class="topbar">
+    <button type="button" class="tb-menu" onclick="toggleMenu()" aria-label="Open menu" aria-controls="sidebar">☰</button>
     <div class="topbar-title"><?= e($pageTitle ?? 'Dashboard') ?></div>
     <div class="topbar-right">
       <?php if ($isSuperAdmin): ?>
@@ -278,8 +336,8 @@ textarea.form-control{resize:vertical;min-height:90px;}
       <a href="/user/inbox.php" class="tb-btn" title="Inbox">
         💬<?php if ($openChats > 0): ?><span class="tb-dot"></span><?php endif; ?>
       </a>
-      <a href="#" class="tb-btn" title="Notifications">
-        🔔<?php if ($unread > 0): ?><span class="tb-dot"></span><?php endif; ?>
+      <a href="/user/notifications.php" class="tb-btn" title="Notifications" aria-label="Notifications<?= $unread ? ' (' . (int)$unread . ' unread)' : '' ?>">
+        🔔<?php if ($unread > 0): ?><span class="tb-count"><?= $unread > 99 ? '99+' : (int)$unread ?></span><?php endif; ?>
       </a>
     </div>
   </div>

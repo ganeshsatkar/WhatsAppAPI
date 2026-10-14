@@ -418,7 +418,28 @@ include __DIR__ . '/../includes/user_header.php';
 .qr-item:hover{border-color:var(--accent);color:var(--text);}
 .tag-chip{display:inline-flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 9px;font-size:11px;color:var(--text2);margin:2px;}
 @media(max-width:1000px){.ir{display:none;}.ib{grid-template-columns:260px 1fr;}}
-@media(max-width:680px){.il{display:none;}.ib{grid-template-columns:1fr;}}
+/* Mobile: WhatsApp-style — conversation list first, tap a chat to open it full-screen, ← to go back */
+.im-back{display:none;background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;padding:4px 6px 4px 0;line-height:1;flex-shrink:0;}
+@media(max-width:768px){
+  /* list mode: normal page flow; chat mode: full screen under the top bar, like WhatsApp */
+  .ib{grid-template-columns:minmax(0,1fr);height:auto;min-height:60dvh;margin-top:0;border-radius:12px;}
+  .ib:not(.chat-open) .im{display:none;}
+  .ib.chat-open .il{display:none;}
+  .ib.chat-open{position:fixed;left:0;right:0;top:calc(56px + env(safe-area-inset-top));bottom:0;height:auto;min-height:0;z-index:110;border:none;border-radius:0;padding-bottom:env(safe-area-inset-bottom);}
+  body.inbox-chat .bnav{display:none;}
+  body.inbox-chat{overflow:hidden;}
+  .im-back{display:block;}
+  .im-header{flex-wrap:wrap;padding:8px 10px;}
+  .im-hinfo{min-width:0;flex:1;}
+  .im-hname,.im-hmeta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .im-hbtns{max-width:100%;width:100%;flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none;}
+  .im-hbtns::-webkit-scrollbar{display:none;}
+  .hb{flex-shrink:0;padding:8px 12px;}
+  .mw{max-width:88%;}
+  .ci{padding:13px 12px;}
+  .input-row .mi{font-size:16px;}
+  #mediaPnl > div[style*="grid-template-columns"]{grid-template-columns:1fr !important;}
+}
 </style>
 
 <?php if (!$waOk): ?>
@@ -486,6 +507,7 @@ include __DIR__ . '/../includes/user_header.php';
     <div id="chatArea" style="display:none;flex-direction:column;height:100%;overflow:hidden;">
       <!-- Header -->
       <div class="im-header">
+        <button class="im-back" onclick="closeConvMobile()" aria-label="Back to chats">←</button>
         <div class="ci-av" id="cHdr-av" style="width:36px;height:36px;font-size:12px;"></div>
         <div class="im-hinfo">
           <div class="im-hname" id="cHdr-name"></div>
@@ -658,6 +680,15 @@ function filterList(q){
   });
 }
 
+// ── MOBILE: back from a chat to the list (also the phone's back button) ──
+function closeConvMobile(fromPop){
+  document.getElementById('ib').classList.remove('chat-open');
+  document.body.classList.remove('inbox-chat');
+  if(!fromPop && location.hash==='#chat') history.back();
+}
+window.addEventListener('popstate',()=>{ if(document.getElementById('ib').classList.contains('chat-open')) closeConvMobile(true); });
+if(window.innerWidth<=768){ const mi=document.getElementById('mi'); if(mi) mi.placeholder='Message'; }
+
 // ── LOAD CONVERSATION ────────────────────────────────────
 async function loadConv(id) {
   ACV=id;
@@ -672,11 +703,14 @@ async function loadConv(id) {
   BOT_ACTIVE=data.conv.is_bot_active==1;
   LAST_MSG_ID=0;
 
-  // Show chat area
+  // Show chat area (on phones the chat replaces the list)
   document.getElementById('noSel').style.display='none';
   const ca=document.getElementById('chatArea');
   ca.style.display='flex';
   ca.style.flexDirection='column';
+  document.getElementById('ib').classList.add('chat-open');
+  document.body.classList.add('inbox-chat');
+  if(window.innerWidth<=768 && location.hash!=='#chat') history.pushState({chat:id},'','#chat');
 
   // Header
   const av=document.getElementById('cHdr-av');

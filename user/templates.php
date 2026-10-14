@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/WhatsAppService.php';
+require_once __DIR__ . '/../includes/template_library.php';
 
 requireLogin();
 $pageTitle = 'Message Templates';
@@ -31,6 +32,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $res = $wa->uploadMedia($file['tmp_name'], $file['type']);
         echo json_encode($res);
         exit;
+    }
+
+    // One-click from the library: fill the normal "save_template" fields, then fall through to it
+    if ($action === 'use_library') {
+        $lib = libraryTemplate((string)($_POST['key'] ?? ''), (string)(currentUser()['company_name'] ?? '') ?: (string)currentUser()['name']);
+        if (!$lib) { $err = 'Template not found in the library.'; }
+        else {
+            $base = $lib['name']; $n = $base; $i = 2;
+            while (db()->row('SELECT id FROM message_templates WHERE user_id=? AND template_name=?', [$uid, $n])) $n = $base . '_' . $i++;
+            $_POST = array_merge($_POST, ['template_name' => $n, 'language' => 'en', 'category' => $lib['category'], 'body' => $lib['body'],
+                'footer' => $lib['footer'], 'header_type' => 'none', 'header_content' => '', 'template_id' => 0,
+                'btn_type' => array_column($lib['buttons'], 'type'), 'btn_text' => array_column($lib['buttons'], 'text'), 'btn_value' => array_fill(0, count($lib['buttons']), '')]);
+            $action = 'save_template';
+        }
     }
 
     if ($action === 'save_template') {
@@ -169,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     curl_close($ch);
 
                     if ($code === 200 && isset($res['id'])) {
-                        db()->run("UPDATE message_templates SET status='pending' WHERE id=?", [$newId]);
+                        db()->run('UPDATE message_templates SET status=?, meta_template_id=? WHERE id=?', [strtoupper($res['status'] ?? '') === 'APPROVED' ? 'approved' : 'pending', (string)$res['id'], $newId]);
                         $msg = '✅ Template submitted to Meta! Approval takes 5–30 min. Click "Sync from Meta" after approval.';
                     } else {
                         $metaErr = $res['error']['error_user_msg'] ?? $res['error']['message'] ?? 'Unknown';
@@ -307,7 +322,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             curl_close($ch);
 
             if ($code === 200 && isset($res['id'])) {
-                db()->run("UPDATE message_templates SET status='pending' WHERE id=?", [$id]);
+                db()->run('UPDATE message_templates SET status=?, meta_template_id=?, rejection_reason=NULL WHERE id=?', [strtoupper($res['status'] ?? '') === 'APPROVED' ? 'approved' : 'pending', (string)$res['id'], $id]);
                 $msg = '✓ Template submitted to Meta! ID: ' . $res['id'] . '. Status: ' . ($res['status'] ?? 'pending') . '. Approval usually takes 5–30 minutes.';
             } else {
                 $errMsg = $res['error']['message'] ?? $res['error']['error_user_msg'] ?? 'Unknown error';
@@ -393,6 +408,55 @@ include __DIR__ . '/../includes/user_header.php';
   <form method="POST" style="display:inline;"><?= csrfField() ?><input type="hidden" name="action" value="sync_templates"><button type="submit" class="btn btn-secondary">🔄 Sync from Meta</button></form>
   <button class="btn btn-primary" onclick="openTplModal()">+ New Template</button>
 </div>
+
+<?php
+$bizName = (string)(currentUser()['company_name'] ?? '') ?: (string)currentUser()['name'];
+$library = [];
+foreach (array_keys(templateLibrary()) as $k) $library[$k] = libraryTemplate($k, $bizName);
+?>
+<style>
+.lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;padding:4px 0 6px;}
+.lib-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;}
+.lib-top{display:flex;align-items:center;gap:8px;justify-content:space-between;}
+.lib-name{font-weight:800;color:#fff;font-size:14px;}
+.lib-prev{background:#071510;border-radius:9px;padding:10px 12px;font-size:12.5px;color:#e2ffd9;line-height:1.55;white-space:pre-wrap;word-break:break-word;flex:1;}
+.lib-prev .v{background:rgba(37,211,102,0.2);border-radius:4px;padding:0 4px;}
+.lib-foot{font-size:11px;color:var(--muted);}
+.lib-act{display:flex;gap:8px;flex-wrap:wrap;}
+details.lib > summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;}
+details.lib > summary::-webkit-details-marker{display:none;}
+details.lib[open] > summary .lib-chev{transform:rotate(180deg);}
+</style>
+<details class="card lib" id="library" style="margin-bottom:18px;" <?= empty($templates) ? 'open' : '' ?>>
+  <summary>
+    <div><div class="card-title">📚 Template library — ready to use</div>
+      <div style="font-size:12.5px;color:var(--text2);margin-top:3px;">Written to pass Meta review. One click submits it; approval usually takes a few minutes. <strong style="color:var(--text);">{{1}}</strong> becomes each customer’s name.</div></div>
+    <span class="lib-chev" style="transition:transform .2s;color:var(--text2);">▾</span>
+  </summary>
+  <div style="padding:0 18px 18px;">
+    <div class="lib-grid">
+      <?php foreach ($library as $k => $t): ?>
+      <div class="lib-card">
+        <div class="lib-top">
+          <div class="lib-name"><?= $t['icon'] ?> <?= e($t['title']) ?></div>
+          <span class="badge <?= $t['category'] === 'MARKETING' ? 'badge-orange' : 'badge-blue' ?>"><?= e($t['category']) ?></span>
+        </div>
+        <div class="lib-prev"><?= str_replace('{{1}}', '<span class="v">{{1}}</span>', e($t['body'])) ?><?php if ($t['buttons']): ?>
+
+<?php foreach ($t['buttons'] as $b): ?>[ <?= e($b['text']) ?> ] <?php endforeach; ?><?php endif; ?></div>
+        <?php if ($t['footer']): ?><div class="lib-foot"><?= e($t['footer']) ?></div><?php endif; ?>
+        <div class="lib-act">
+          <form method="POST" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Submitting…';">
+            <?= csrfField() ?><input type="hidden" name="action" value="use_library"><input type="hidden" name="key" value="<?= e($k) ?>">
+            <button type="submit" class="btn btn-primary btn-sm">🚀 Submit to Meta</button>
+          </form>
+          <button type="button" class="btn btn-secondary btn-sm" onclick='useLibraryEdit(<?= json_encode($t, JSON_HEX_APOS | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT) ?>)'>✏️ Edit first</button>
+        </div>
+      </div>
+      <?php endforeach; ?>
+    </div>
+  </div>
+</details>
 
 <?php $cnt = array_count_values(array_column($templates, 'status')); ?>
 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;font-size:12.5px;">
@@ -632,6 +696,19 @@ function openTplModal() {
   document.getElementById('tplSaveBtn').textContent='🚀 Save & Submit to Meta';
   renderPreview();
   openModal('tplModal');
+}
+
+// Library → open the normal "New Template" form pre-filled so it can be changed before submitting
+function useLibraryEdit(t) {
+  openTplModal();
+  document.getElementById('tplName').value = t.name;
+  document.getElementById('tplCat').value  = t.category;
+  document.getElementById('tplLang').value = 'en';
+  document.getElementById('tplBody').value = t.body;
+  document.getElementById('tplFooter').value = t.footer || '';
+  (t.buttons || []).forEach(b => addBtn(b.type, b.text, ''));
+  detectVars(t.body);
+  renderPreview();
 }
 
 function editTpl(t) {

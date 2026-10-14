@@ -5,7 +5,7 @@
 // ============================================================
 
 // Pages an account WITHOUT an active plan may still open (to see status, recharge wallet, buy a plan).
-const PLAN_LOCK_WHITELIST = ['dashboard.php', 'billing.php', 'wallet.php', 'settings.php', 'logout.php'];
+const PLAN_LOCK_WHITELIST = ['dashboard.php', 'billing.php', 'wallet.php', 'settings.php', 'notifications.php', 'logout.php'];
 
 function planFeatureKeys(): array {
     return ['chatbot_builder' => 'Chatbot builder', 'automation_workflows' => 'Automation', 'advanced_analytics' => 'Advanced analytics', 'api_access' => 'Developer API'];

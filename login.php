@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login — WP API</title>
+<title>Login — WP API Pro</title>
 <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -126,6 +126,7 @@ body{font-family:'Cabinet Grotesk',sans-serif;background:var(--ink);color:var(--
 .pc b{color:var(--g);}
 @media(max-width:768px){body{grid-template-columns:1fr;}.left{display:none;}.right{padding:40px 24px;}}
 </style>
+<?php include __DIR__ . '/includes/pwa_head.php'; ?>
 </head>
 <body>
 
@@ -134,7 +135,7 @@ body{font-family:'Cabinet Grotesk',sans-serif;background:var(--ink);color:var(--
   <div class="lc">
     <div class="logo">
       <div class="logo-mark">💬</div>
-      <div><div class="logo-name">WP <span>API</span></div><div class="logo-tag">WhatsApp Business Platform</div></div>
+      <div><div class="logo-name">WP API <span>Pro</span></div><div class="logo-tag">WhatsApp Business Platform</div></div>
     </div>
     <h2>Automate Your<br><span>WhatsApp</span><br>Business Today</h2>
     <p class="left-p">Send bulk campaigns, build chatbots, manage your shared inbox, and track every lead — all in one platform.</p>
@@ -145,10 +146,10 @@ body{font-family:'Cabinet Grotesk',sans-serif;background:var(--ink);color:var(--
       <div class="feat"><div class="fi">📊</div><div class="fb"><strong>Real-time Analytics</strong><span>Delivery rates, read rates, CTR in one dashboard</span></div></div>
     </div>
     <div class="stats">
-      <div><div class="sn">50K+</div><div class="sl">Businesses</div></div>
-      <div><div class="sn">98.5%</div><div class="sl">Delivery</div></div>
-      <div><div class="sn">2.4M</div><div class="sl">Msgs/Day</div></div>
-      <div><div class="sn">4.9★</div><div class="sl">Rating</div></div>
+      <div><div class="sn">7 days</div><div class="sl">Free trial</div></div>
+      <div><div class="sn">₹0</div><div class="sl">Setup fee</div></div>
+      <div><div class="sn">24/7</div><div class="sl">Chatbots</div></div>
+      <div><div class="sn">Official</div><div class="sl">Meta Cloud API</div></div>
     </div>
   </div>
   <div class="support lc">
@@ -165,7 +166,7 @@ body{font-family:'Cabinet Grotesk',sans-serif;background:var(--ink);color:var(--
     <a href="/" class="back">← Back to Home</a>
     <div class="fh">
       <h3>Welcome Back</h3>
-      <p><span class="pulse"></span>Sign in to your WP API account</p>
+      <p><span class="pulse"></span>Sign in to your WP API Pro account</p>
     </div>
 
     <?php if ($notice): ?><div class="dberr" style="color:var(--g);background:var(--gdim);border-color:var(--gborder);">✓ <?= e($notice) ?></div><?php endif; ?>
@@ -193,11 +194,11 @@ body{font-family:'Cabinet Grotesk',sans-serif;background:var(--ink);color:var(--
         <span></span>
         <a href="/forgot-password.php" class="fl">Forgot password?</a>
       </div>
-      <button type="submit" class="btn-login" id="lb">Sign In to WP API →</button>
+      <button type="submit" class="btn-login" id="lb">Sign In →</button>
     </form>
 
     <div class="div">or</div>
-    <div class="reg">New to WP API? <a href="/register.php">Create free account →</a></div>
+    <div class="reg">New to WP API Pro? <a href="/register.php">Create free account →</a></div>
 
     <div class="reset-box">
       <strong>🔑 Password Reset / Support</strong>
@@ -209,6 +210,12 @@ body{font-family:'Cabinet Grotesk',sans-serif;background:var(--ink);color:var(--
       <div class="pc">7-day Trial <b>Free</b></div>
       <div class="pc">Basic <b>₹599/mo</b></div>
       <div class="pc">Platform <b>₹1,199/mo</b></div>
+    </div>
+    <div style="text-align:center;margin-top:18px;font-size:12px;">
+      <a href="/privacy.php" style="color:var(--text2);text-decoration:none;margin:0 6px;">Privacy</a>·
+      <a href="/terms.php" style="color:var(--text2);text-decoration:none;margin:0 6px;">Terms</a>·
+      <a href="/refund.php" style="color:var(--text2);text-decoration:none;margin:0 6px;">Refunds</a>·
+      <a href="/contact.php" style="color:var(--text2);text-decoration:none;margin:0 6px;">Contact</a>
     </div>
   </div>
 </div>
@@ -224,5 +231,6 @@ document.getElementById('lf').addEventListener('submit',function(){
   b.textContent='Signing in…';b.style.opacity='.8';b.disabled=true;
 });
 </script>
+<?php include __DIR__ . '/includes/pwa_footer.php'; ?>
 </body>
 </html>

@@ -27,7 +27,7 @@ function env(string $key, $default = null) {
     return match (strtolower((string)$v)) { 'true' => true, 'false' => false, default => $v };
 }
 
-define('APP_NAME',    env('APP_NAME', 'WP API'));
+define('APP_NAME',    env('APP_NAME', 'WP API Pro'));
 define('APP_VERSION', '2.0.0');
 define('APP_URL',     rtrim(env('APP_URL', 'https://wpapi.grdpinfotech.com'), '/'));
 define('APP_ENV',     env('APP_ENV', 'production'));
@@ -69,6 +69,9 @@ define('RAZORPAY_KEY_SECRET',     env('RAZORPAY_KEY_SECRET', env('RZP_KEY_SECRET
 define('RAZORPAY_WEBHOOK_SECRET', env('RAZORPAY_WEBHOOK_SECRET', env('RZP_WEBHOOK_SECRET', '')));
 if (env('RAZORPAY_API_BASE')) define('RAZORPAY_API_BASE', env('RAZORPAY_API_BASE')); // local mocks only
 
+// New sign-ups get the Trial plan automatically for this many days (0 = admin activates manually)
+define('AUTO_TRIAL_DAYS', max(0, min(30, (int)env('AUTO_TRIAL_DAYS', 7))));
+
 // Public API
 define('API_ALLOW_PRIVATE_CALLBACKS', APP_ENV !== 'production' && env('API_ALLOW_PRIVATE_CALLBACKS', false));
 
@@ -88,6 +91,15 @@ define('MAIL_FROM_NAME', APP_NAME);
 // Support contact shown on public pages
 define('SUPPORT_EMAIL', env('SUPPORT_EMAIL', 'info@grdpinfotech.com'));
 define('SUPPORT_PHONE', env('SUPPORT_PHONE', ''));
+
+// Legal / business details shown on Privacy, Terms, Refund and Contact pages
+define('LEGAL_COMPANY',   env('LEGAL_COMPANY', 'GRDP InfoTech'));
+define('LEGAL_ADDRESS',   env('LEGAL_ADDRESS', ''));          // registered address (required by Razorpay)
+define('LEGAL_GSTIN',     env('LEGAL_GSTIN', ''));
+define('LEGAL_CITY',      env('LEGAL_CITY', ''));             // courts' jurisdiction, e.g. "Pune, Maharashtra"
+define('GRIEVANCE_NAME',  env('GRIEVANCE_NAME', ''));         // grievance officer (DPDP Act 2023)
+define('LEGAL_UPDATED',   env('LEGAL_UPDATED', '14 October 2026'));
+define('REFUND_DAYS',     max(1, (int)env('REFUND_DAYS', 7))); // working days to process an approved refund
 
 // Cron secret (only needed when cron / migrate.php are triggered over HTTP)
 define('CRON_SECRET', env('CRON_SECRET', ''));

@@ -30,7 +30,7 @@ $seg    = $path === '' ? [] : explode('/', $path);
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'OPTIONS') { http_response_code(204); exit; }
-if (!$seg) { echo json_encode(['name' => 'WhatsFlow Pro API', 'version' => 'v1']); exit; }
+if (!$seg) { echo json_encode(['name' => 'WP API Pro API', 'version' => 'v1']); exit; }
 
 [$user, $key] = apiAuthenticate();
 $uid = (int)$user['id']; $keyId = (int)$key['id'];

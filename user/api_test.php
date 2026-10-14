@@ -90,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>API Direct Test — WP API</title>
+<title>API Direct Test — WP API Pro</title>
 <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}

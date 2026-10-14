@@ -66,6 +66,15 @@ RewriteRule (^|/)\. - [F,L]
   php_value memory_limit 256M
 </IfModule>
 
+# PWA
+AddType application/manifest+json .webmanifest
+<Files "sw.js">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "no-cache, must-revalidate"
+    Header set Service-Worker-Allowed "/"
+  </IfModule>
+</Files>
+
 <IfModule mod_expires.c>
   ExpiresActive On
   ExpiresByType image/png "access plus 1 month"

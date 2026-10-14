@@ -35,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Forgot Password — <?= APP_NAME ?></title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -54,10 +55,11 @@ input:focus { border-color:var(--accent);box-shadow:0 0 0 3px var(--glow); }
 .alert-e { background:rgba(255,77,109,0.1);border:1px solid rgba(255,77,109,0.3);border-radius:8px;padding:11px;color:var(--danger);font-size:14px;margin-bottom:18px; }
 a { color:var(--accent);text-decoration:none;font-size:14px; }
 </style>
+<?php include __DIR__ . '/includes/pwa_head.php'; ?>
 </head>
 <body>
 <div class="card">
-  <div class="logo">Whats<span>Flow</span> Pro</div>
+  <div class="logo">WP API <span>Pro</span></div>
   <h2>Reset Password</h2>
   <p class="sub">Enter your email and we'll send a reset link.</p>
   <?php if ($msg): ?><div class="alert-s">✓ <?= e($msg) ?></div><?php endif; ?>
@@ -72,5 +74,6 @@ a { color:var(--accent);text-decoration:none;font-size:14px; }
   <?php endif; ?>
   <div style="text-align:center;margin-top:20px;"><a href="/login.php">← Back to Login</a></div>
 </div>
+<?php include __DIR__ . '/includes/pwa_footer.php'; ?>
 </body>
 </html>

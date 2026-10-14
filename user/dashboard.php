@@ -38,8 +38,79 @@ for ($i = 6; $i >= 0; $i--) {
     $chartData[] = ['label' => $label, 'sent' => $sent, 'recv' => $recv];
 }
 
+// ── Getting started checklist ─────────────────────────────
+$isAdminUser = currentUser()['role'] === 'superadmin';
+$sub         = subscriptionState((int)$uid);
+$wa          = db()->row('SELECT is_connected FROM user_whatsapp_settings WHERE user_id = ?', [$uid]);
+$tplApproved = db()->count("SELECT COUNT(*) FROM message_templates WHERE user_id = ? AND status = 'approved'", [$uid]);
+$tplPending  = db()->count("SELECT COUNT(*) FROM message_templates WHERE user_id = ? AND status = 'pending'", [$uid]);
+$walletBal   = (float)(db()->row('SELECT balance FROM wallets WHERE user_id = ?', [$uid])['balance'] ?? 0);
+$sentAny     = db()->count('SELECT COUNT(*) FROM campaigns WHERE user_id = ? AND sent_count > 0', [$uid]);
+$steps = [
+    ['done' => $isAdminUser || $sub['active'], 'title' => 'Activate your plan',
+     'text' => $sub['active'] ? ($sub['is_trial'] ? 'Free trial is running — ' . (int)$sub['days_left'] . ' day(s) left.' : 'Your plan is active.') : 'Start a plan to unlock campaigns, inbox and chatbots.',
+     'href' => '/user/billing.php', 'cta' => 'Choose plan'],
+    ['done' => !empty($wa['is_connected']), 'title' => 'Connect your WhatsApp number',
+     'text' => 'Link your number through Meta’s official WhatsApp Cloud API (step-by-step in Settings).', 'href' => '/user/settings.php', 'cta' => 'Connect'],
+    ['done' => $totalContacts > 0, 'title' => 'Add your customers',
+     'text' => 'Add contacts one by one or upload a CSV / Excel export.', 'href' => '/user/contacts.php', 'cta' => 'Add contacts'],
+    ['done' => $tplApproved > 0, 'title' => 'Get a message template approved',
+     'text' => $tplPending ? "$tplPending template(s) waiting for Meta approval (usually minutes)." : 'Pick a ready-made template from the library — one click submits it to Meta.',
+     'href' => '/user/templates.php#library', 'cta' => 'Open library'],
+    ['done' => $walletBal > 0 || $sentAny > 0, 'title' => 'Add money to your wallet',
+     'text' => 'WhatsApp charges per message are paid from your prepaid wallet (UPI, cards, net-banking).', 'href' => '/user/wallet.php', 'cta' => 'Recharge'],
+    ['done' => $sentAny > 0, 'title' => 'Send your first campaign',
+     'text' => 'Choose a template, pick your audience and launch — delivery and read reports update live.', 'href' => '/user/campaigns.php', 'cta' => 'New campaign'],
+];
+$doneCount = count(array_filter($steps, fn($s) => $s['done']));
+
 include __DIR__ . '/../includes/user_header.php';
 ?>
+
+<?php if ($doneCount < count($steps)): ?>
+<style>
+.gs{background:linear-gradient(135deg,rgba(37,211,102,0.08),rgba(37,211,102,0.02));border:1px solid rgba(37,211,102,0.25);border-radius:14px;padding:18px 20px;margin-bottom:22px;}
+.gs-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.gs-title{font-size:16px;font-weight:900;color:#fff;}
+.gs-sub{font-size:12.5px;color:var(--text2);margin-top:2px;}
+.gs-bar{height:6px;background:var(--surface3);border-radius:4px;overflow:hidden;margin-bottom:14px;}
+.gs-bar span{display:block;height:100%;background:var(--accent);border-radius:4px;transition:width .4s;}
+.gs-step{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--border);}
+.gs-dot{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;border:2px solid var(--border2);color:var(--text2);}
+.gs-step.done .gs-dot{background:var(--accent);border-color:var(--accent);color:#000;}
+.gs-step.done .gs-st{color:var(--text2);text-decoration:line-through;}
+.gs-st{font-size:14px;font-weight:800;color:var(--text);}
+.gs-tx{font-size:12.5px;color:var(--text2);margin-top:2px;line-height:1.5;}
+.gs-step .btn{margin-left:auto;flex-shrink:0;}
+.gs-step.next{background:rgba(37,211,102,0.05);border-radius:10px;padding:11px 10px;margin:0 -10px;}
+@media(max-width:768px){.gs{padding:14px;} .gs-step{flex-wrap:wrap;} .gs-step .btn{margin-left:40px;}}
+</style>
+<div class="gs" id="gsCard">
+  <div class="gs-head">
+    <div>
+      <div class="gs-title">🚀 Getting started — <?= $doneCount ?> of <?= count($steps) ?> done</div>
+      <div class="gs-sub">Finish these steps to send your first WhatsApp campaign.</div>
+    </div>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="hideGs()">Hide</button>
+  </div>
+  <div class="gs-bar"><span style="width:<?= round($doneCount / count($steps) * 100) ?>%"></span></div>
+  <?php $nextShown = false; foreach ($steps as $i => $s): $isNext = !$s['done'] && !$nextShown; if ($isNext) $nextShown = true; ?>
+  <div class="gs-step <?= $s['done'] ? 'done' : '' ?> <?= $isNext ? 'next' : '' ?>">
+    <div class="gs-dot"><?= $s['done'] ? '✓' : $i + 1 ?></div>
+    <div style="min-width:0;flex:1;">
+      <div class="gs-st"><?= e($s['title']) ?></div>
+      <div class="gs-tx"><?= e($s['text']) ?></div>
+    </div>
+    <?php if (!$s['done']): ?><a href="<?= e($s['href']) ?>" class="btn <?= $isNext ? 'btn-primary' : 'btn-secondary' ?> btn-sm"><?= e($s['cta']) ?> →</a><?php endif; ?>
+  </div>
+  <?php endforeach; ?>
+</div>
+<script>
+// "Hide" remembers the progress level, so the card comes back when there is a new step to do
+(function(){ try { if (localStorage.getItem('wpapi_gs_hidden') === '<?= $doneCount ?>') document.getElementById('gsCard').style.display = 'none'; } catch(e){} })();
+function hideGs(){ try { localStorage.setItem('wpapi_gs_hidden', '<?= $doneCount ?>'); } catch(e){} document.getElementById('gsCard').style.display = 'none'; }
+</script>
+<?php endif; ?>
 
 <!-- Stats Grid -->
 <div class="stats-grid">
