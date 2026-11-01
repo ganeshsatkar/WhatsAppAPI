@@ -232,6 +232,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    if ($action === 'poll_conv_list') {
+        $convs = db()->all('SELECT cv.id, cv.contact_id, cv.status, cv.unread_count, cv.last_message_at,
+            c.name as contact_name, c.phone,
+            (SELECT content FROM messages WHERE conversation_id=cv.id ORDER BY id DESC LIMIT 1) as last_content,
+            (SELECT created_at FROM messages WHERE conversation_id=cv.id ORDER BY id DESC LIMIT 1) as last_msg_time,
+            (SELECT direction FROM messages WHERE conversation_id=cv.id ORDER BY id DESC LIMIT 1) as last_dir,
+            (SELECT message_type FROM messages WHERE conversation_id=cv.id ORDER BY id DESC LIMIT 1) as last_type
+            FROM conversations cv
+            JOIN contacts c ON c.id=cv.contact_id
+            WHERE cv.user_id=?
+            ORDER BY cv.last_message_at DESC LIMIT 50', [$uid]);
+        echo json_encode(['success'=>true, 'conversations'=>$convs]);
+        exit;
+    }
+
     if ($action === 'set_status') {
         $convId=(int)$_POST['conv_id'];
         $s=in_array($_POST['status']??'',['open','resolved','pending','snoozed'],true)?$_POST['status']:'open';
@@ -900,12 +915,14 @@ async function doPoll() {
   if(!data.messages||!data.messages.length)return;
   const mc=document.getElementById('msgs');
   const atBot=mc.scrollHeight-mc.clientHeight-mc.scrollTop<80;
+  let hasInbound = false;
   data.messages.forEach(m=>{
     if(mc.querySelector(`[data-id="${m.id}"]`)){LAST_MSG_ID=Math.max(LAST_MSG_ID,parseInt(m.id));return;}   // already shown (we sent it)
     const d=P(m.created_at).toDateString();
     if(d!==LAST_DATE){mc.appendChild(dateSep(d));LAST_DATE=d;}
     mc.appendChild(buildMsg(m));
     LAST_MSG_ID=Math.max(LAST_MSG_ID,parseInt(m.id));
+    if(m.direction==='inbound') hasInbound=true;
   });
   if(atBot)mc.scrollTop=mc.scrollHeight;
   // Update conv list preview + move to top
@@ -918,8 +935,11 @@ async function doPoll() {
     if(t) t.textContent=fmtTime(last.created_at);
     const list=document.getElementById('clist');
     list.insertBefore(ci, list.firstChild);
-    // Flash notification for inbound
-    if(last.direction==='inbound'){
+    // Flash notification and sound for inbound
+    if(last.direction==='inbound' || hasInbound){
+      playChatSound();
+      const cName = document.getElementById('cHdr-name')?.textContent || 'Customer';
+      notifyNewMsg(cName, last.content || 'New message');
       ci.style.background='rgba(37,211,102,0.08)';
       setTimeout(()=>ci.style.background='',2000);
     }
@@ -1239,6 +1259,85 @@ function toast(msg,type='ok'){
   el.style.cssText=`position:fixed;bottom:24px;right:24px;z-index:9999;background:${colors[type]||colors.ok};color:${tc[type]||tc.ok};padding:10px 18px;border-radius:9px;font-size:13px;font-weight:700;font-family:'Cabinet Grotesk',sans-serif;`;
   el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),3000);
 }
+
+// ── NOTIFICATIONS & AUDIO CHIME ──────────────────────────
+function playChatSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.36);
+  } catch(e){}
+}
+
+function notifyNewMsg(sender, text) {
+  if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+    try {
+      new Notification('WhatsApp from ' + sender, {
+        body: (text || 'New message').substring(0, 100),
+        icon: '/assets/icon-192.png'
+      });
+    } catch(e){}
+  }
+}
+
+// Request permission once on interaction
+document.addEventListener('click', function reqNotifOnce() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+  document.removeEventListener('click', reqNotifOnce);
+}, { once: true });
+
+// Background poll for all conversations (updates sidebar & unread counts)
+async function doPollList() {
+  try {
+    const res = await post({action:'poll_conv_list'});
+    if (!res || !res.conversations) return;
+    const list = document.getElementById('clist');
+    if (!list) return;
+    let anyNewInbound = false;
+    res.conversations.forEach(c => {
+      let ci = document.getElementById('ci-' + c.id);
+      if (ci) {
+        const prev = ci.querySelector('.ci-prev');
+        const oldTxt = prev ? prev.textContent.trim() : '';
+        const newTxt = (c.last_content || (c.last_type === 'image' ? '📷 Image' : (c.last_type === 'template' ? '📋 Template' : ''))).substring(0, 50).trim();
+        if (prev && newTxt) prev.textContent = newTxt;
+        const timeEl = ci.querySelector('.ci-time');
+        if (timeEl && c.last_msg_time) timeEl.textContent = fmtTime(c.last_msg_time);
+
+        let unreadBadge = ci.querySelector('.ci-unread');
+        const unreadCount = parseInt(c.unread_count || 0);
+        if (unreadCount > 0 && c.id != ACV) {
+          if (!unreadBadge) {
+            unreadBadge = document.createElement('span');
+            unreadBadge.className = 'ci-unread';
+            ci.querySelector('.ci-meta')?.appendChild(unreadBadge);
+          }
+          if (unreadBadge) unreadBadge.textContent = unreadCount;
+          if (c.last_dir === 'inbound' && oldTxt !== newTxt) anyNewInbound = true;
+        } else if (unreadBadge && c.id == ACV) {
+          unreadBadge.remove();
+        }
+      }
+    });
+    if (anyNewInbound && !ACV) {
+      playChatSound();
+      notifyNewMsg('WhatsApp Customer', 'New incoming message');
+    }
+  } catch(e){}
+}
+setInterval(doPollList, 7000);
 
 // Auto-open first conv on desktop
 <?php if(!empty($convs)):?>

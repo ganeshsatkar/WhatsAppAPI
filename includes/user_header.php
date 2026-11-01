@@ -4,6 +4,8 @@
 // ============================================================
 $user        = currentUser();
 $plan        = currentPlan();
+require_once __DIR__ . '/wallet.php';
+$wBal        = walletBalance((int)$user['id']);
 $unread      = db()->count('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0', [$user['id']]);
 $openChats   = db()->count('SELECT COUNT(*) FROM conversations WHERE user_id = ? AND status = ?', [$user['id'], 'open']);
 $currentPath = basename($_SERVER['PHP_SELF']);
@@ -333,6 +335,10 @@ textarea.form-control{resize:vertical;min-height:90px;}
       <?php if ($isSuperAdmin): ?>
         <span class="admin-badge">🛡️ Super Admin</span>
       <?php endif; ?>
+      <a href="/user/wallet.php" class="tb-wallet-pill" title="Wallet Balance — Click to recharge" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;background:var(--surface2);border:1px solid <?= $wBal < 50 ? 'rgba(239,68,68,0.4)' : 'var(--border)' ?>;text-decoration:none;font-size:12px;font-weight:600;color:var(--text);transition:all 0.2s;">
+        <span>💰</span>
+        <span style="color:<?= $wBal < 50 ? 'var(--danger)' : 'var(--accent)' ?>;"><?= inr($wBal) ?></span>
+      </a>
       <a href="/user/inbox.php" class="tb-btn" title="Inbox">
         💬<?php if ($openChats > 0): ?><span class="tb-dot"></span><?php endif; ?>
       </a>
@@ -342,6 +348,12 @@ textarea.form-control{resize:vertical;min-height:90px;}
     </div>
   </div>
   <div class="page-content">
+    <?php if (!$isSuperAdmin && $user['role'] === 'user' && $wBal < 50 && $currentPath !== 'wallet.php'): ?>
+      <div class="alert alert-warning" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;border-left:4px solid var(--danger);">
+        <span>⚠️ <strong>Low Wallet Balance:</strong> Your balance is <strong><?= inr($wBal) ?></strong>. Messages & campaigns will pause when balance reaches ₹0.</span>
+        <a href="/user/wallet.php" class="btn btn-primary btn-sm" style="font-size:12px;padding:5px 14px;">Recharge Wallet →</a>
+      </div>
+    <?php endif; ?>
     <?php if (!$isSuperAdmin && $user['role'] === 'user'): ?>
       <?php if (!$subState['active']): ?>
       <div class="alert alert-danger" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
