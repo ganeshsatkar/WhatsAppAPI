@@ -306,6 +306,14 @@ if (!$quickReplies) {
 include __DIR__ . '/../includes/user_header.php';
 ?>
 <style>
+@media(min-width: 769px) {
+  html, body { height: 100%; overflow: hidden; }
+  .main-wrap { height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+  .topbar { flex-shrink: 0; }
+  .page-content { flex: 1; min-height: 0; padding: 10px 18px 12px !important; overflow: hidden !important; display: flex !important; flex-direction: column !important; }
+  .ib { flex: 1; min-height: 0; height: 100% !important; margin: 0 !important; }
+}
+
 .ib{display:grid;grid-template-columns:296px 1fr 268px;height:calc(100vh - 100px);min-height:500px;border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-top:-4px;background:var(--bg);}
 
 /* LEFT */
@@ -1239,3 +1247,4 @@ if(window.innerWidth>900) loadConv(<?= $convs[0]['id'] ?>);
 </script>
 
 <?php include __DIR__ . '/../includes/user_footer.php'; ?>
+

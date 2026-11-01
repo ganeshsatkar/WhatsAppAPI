@@ -56,6 +56,9 @@ if ($token === '') { http_response_code(403); exit; }
 
 // Meta's download URLs expire after a few minutes, so always ask for a fresh one by media id.
 $url = $msg['media_url'];
+if (!$msg['media_id'] && preg_match('/[?&]mid=(\d+)/', (string)($msg['media_url'] ?? ''), $mMatch)) {
+    $msg['media_id'] = $mMatch[1];
+}
 if ($msg['media_id']) {
     require_once __DIR__ . '/includes/WhatsAppService.php';
     $r = (new WhatsAppService('', $token))->getMediaUrl($msg['media_id']);
@@ -67,7 +70,7 @@ $ch = curl_init($url);
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_FOLLOWLOCATION => true,
-    CURLOPT_HTTPHEADER     => ['Authorization: Bearer ' . $token],
+    CURLOPT_HTTPHEADER     => ['Authorization: Bearer ' . $token, 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)'],
     CURLOPT_TIMEOUT        => 30,
 ]);
 $data  = curl_exec($ch);
@@ -78,3 +81,4 @@ curl_close($ch);
 if ($code !== 200 || !$data) { http_response_code(404); exit; }
 file_put_contents($cacheFile, $data);
 serveMedia($data, $msg['media_mime_type'], $ctype);
+
