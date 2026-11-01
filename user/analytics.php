@@ -35,6 +35,9 @@ if ($preset === 'today') {
 } elseif ($preset === 'last_month') {
     $fromDate = date('Y-m-01', strtotime('first day of last month'));
     $toDate = date('Y-m-t', strtotime('last day of last month'));
+} elseif ($preset === 'all') {
+    $fromDate = '2025-01-01';
+    $toDate = $today;
 } else {
     // If explicit from/to not given, default to 30 days
     if (empty($fromDate) || empty($toDate)) {
@@ -77,14 +80,14 @@ if (($_GET['export'] ?? '') === 'csv') {
         GROUP BY DATE(m.created_at)
         ORDER BY msg_date DESC", [$uid, $fromDate, $toDate]);
     
-    $campDaily = db()->all("SELECT DATE(created_at) as camp_date,
+    $campDaily = db()->all("SELECT DATE(COALESCE(sent_at, created_at)) as camp_date,
         COUNT(*) as total_cnt,
         SUM(CASE WHEN status IN ('delivered','read') THEN 1 ELSE 0 END) as deliv_cnt,
         SUM(CASE WHEN status = 'read' THEN 1 ELSE 0 END) as read_cnt,
         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as fail_cnt
         FROM campaign_logs
-        WHERE user_id = ? AND DATE(created_at) BETWEEN ? AND ?
-        GROUP BY DATE(created_at)
+        WHERE user_id = ? AND DATE(COALESCE(sent_at, created_at)) BETWEEN ? AND ?
+        GROUP BY DATE(COALESCE(sent_at, created_at))
         ORDER BY camp_date DESC", [$uid, $fromDate, $toDate]);
     
     $campMap = [];
@@ -137,10 +140,10 @@ $qrScans           = (int)db()->count("SELECT COUNT(*) FROM qr_scans qs JOIN qr_
 $campaignsSent     = (int)db()->count("SELECT COUNT(*) FROM campaigns WHERE user_id = ? AND status = 'completed' AND DATE(created_at) BETWEEN ? AND ?", [$uid, $fromDate, $toDate]);
 
 // Campaign delivery stats
-$totalCampaignSent = (int)db()->count("SELECT COUNT(*) FROM campaign_logs WHERE user_id = ? AND DATE(created_at) BETWEEN ? AND ?", [$uid, $fromDate, $toDate]);
-$totalCampDelivered = (int)db()->count("SELECT COUNT(*) FROM campaign_logs WHERE user_id = ? AND status IN ('delivered','read') AND DATE(created_at) BETWEEN ? AND ?", [$uid, $fromDate, $toDate]);
-$totalCampRead      = (int)db()->count("SELECT COUNT(*) FROM campaign_logs WHERE user_id = ? AND status = 'read' AND DATE(created_at) BETWEEN ? AND ?", [$uid, $fromDate, $toDate]);
-$totalCampFailed    = (int)db()->count("SELECT COUNT(*) FROM campaign_logs WHERE user_id = ? AND status = 'failed' AND DATE(created_at) BETWEEN ? AND ?", [$uid, $fromDate, $toDate]);
+$totalCampaignSent = (int)db()->count("SELECT COUNT(*) FROM campaign_logs WHERE user_id = ? AND DATE(COALESCE(sent_at, created_at)) BETWEEN ? AND ?", [$uid, $fromDate, $toDate]);
+$totalCampDelivered = (int)db()->count("SELECT COUNT(*) FROM campaign_logs WHERE user_id = ? AND status IN ('delivered','read') AND DATE(COALESCE(sent_at, created_at)) BETWEEN ? AND ?", [$uid, $fromDate, $toDate]);
+$totalCampRead      = (int)db()->count("SELECT COUNT(*) FROM campaign_logs WHERE user_id = ? AND status = 'read' AND DATE(COALESCE(sent_at, created_at)) BETWEEN ? AND ?", [$uid, $fromDate, $toDate]);
+$totalCampFailed    = (int)db()->count("SELECT COUNT(*) FROM campaign_logs WHERE user_id = ? AND status = 'failed' AND DATE(COALESCE(sent_at, created_at)) BETWEEN ? AND ?", [$uid, $fromDate, $toDate]);
 
 // Combined outbound sent
 $grandTotalSent = $totalSentChat + $totalCampaignSent;
@@ -159,14 +162,14 @@ $chatDaily = db()->all("SELECT DATE(m.created_at) as msg_date,
     GROUP BY DATE(m.created_at)
     ORDER BY msg_date DESC", [$uid, $fromDate, $toDate]);
 
-$campDaily = db()->all("SELECT DATE(created_at) as camp_date,
+$campDaily = db()->all("SELECT DATE(COALESCE(sent_at, created_at)) as camp_date,
     COUNT(*) as total_cnt,
     SUM(CASE WHEN status IN ('delivered','read') THEN 1 ELSE 0 END) as deliv_cnt,
     SUM(CASE WHEN status = 'read' THEN 1 ELSE 0 END) as read_cnt,
     SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as fail_cnt
     FROM campaign_logs
-    WHERE user_id = ? AND DATE(created_at) BETWEEN ? AND ?
-    GROUP BY DATE(created_at)
+    WHERE user_id = ? AND DATE(COALESCE(sent_at, created_at)) BETWEEN ? AND ?
+    GROUP BY DATE(COALESCE(sent_at, created_at))
     ORDER BY camp_date DESC", [$uid, $fromDate, $toDate]);
 
 $campMap = [];
@@ -275,6 +278,7 @@ include __DIR__ . '/../includes/user_header.php';
         <a href="?preset=30d" class="btn btn-sm <?= $preset === '30d' ? 'btn-primary' : 'btn-secondary' ?>">30 Days</a>
         <a href="?preset=this_month" class="btn btn-sm <?= $preset === 'this_month' ? 'btn-primary' : 'btn-secondary' ?>">This Month</a>
         <a href="?preset=last_month" class="btn btn-sm <?= $preset === 'last_month' ? 'btn-primary' : 'btn-secondary' ?>">Last Month</a>
+        <a href="?preset=all" class="btn btn-sm <?= $preset === 'all' ? 'btn-primary' : 'btn-secondary' ?>">All Time</a>
       </div>
 
       <!-- Custom Date Picker Form -->

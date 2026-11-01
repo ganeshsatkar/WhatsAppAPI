@@ -182,8 +182,69 @@ $detailedLogs = db()->all("SELECT cl.id, cl.phone,
     ORDER BY cl.id DESC
     LIMIT $limit OFFSET $offset", $params);
 
-// All template names for dropdown
+// Fetch all available templates for dropdown
 $dropdownTemplates = db()->all("SELECT DISTINCT template_name FROM message_templates WHERE user_id = ? ORDER BY template_name ASC", [$uid]);
+
+// --- Meta Live Cloud API Analytics Query ---
+$was = db()->row('SELECT * FROM user_whatsapp_settings WHERE user_id=?', [$uid]);
+$metaAnalytics = null;
+$metaLiveSent = 0;
+$metaLiveDelivered = 0;
+$metaPhoneName = '';
+$metaRating = 'GREEN';
+
+if ($was && !empty($was['access_token']) && !empty($was['business_account_id'])) {
+    $token = decryptSecret($was['access_token']);
+    $waba = $was['business_account_id'];
+    $phoneId = $was['phone_number_id'] ?? '';
+    
+    $cacheKey = "meta_waba_analytics_{$uid}";
+    $cached = $_SESSION[$cacheKey] ?? null;
+    $cacheTime = $_SESSION[$cacheKey . '_time'] ?? 0;
+    
+    if (isset($_GET['refresh_meta']) || !$cached || (time() - $cacheTime > 300)) {
+        $past = time() - (30 * 86400);
+        $now = time();
+        $ch = curl_init("https://graph.facebook.com/v20.0/$waba?fields=analytics.start($past).end($now).granularity(DAY)");
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer $token"]);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+        $metaRes = json_decode(curl_exec($ch), true);
+        curl_close($ch);
+        
+        if ($phoneId) {
+            $ch = curl_init("https://graph.facebook.com/v20.0/$phoneId?fields=display_phone_number,verified_name,quality_rating");
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer $token"]);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+            $phoneRes = json_decode(curl_exec($ch), true);
+            curl_close($ch);
+            if (!empty($phoneRes['verified_name'])) {
+                $metaPhoneName = $phoneRes['verified_name'] . ' (' . ($phoneRes['display_phone_number'] ?? '') . ')';
+                $metaRating = $phoneRes['quality_rating'] ?? 'GREEN';
+            }
+        }
+        
+        if (!empty($metaRes['analytics']['data_points'])) {
+            $metaAnalytics = $metaRes['analytics']['data_points'];
+            $_SESSION[$cacheKey] = $metaAnalytics;
+            $_SESSION[$cacheKey . '_info'] = ['name' => $metaPhoneName, 'rating' => $metaRating];
+            $_SESSION[$cacheKey . '_time'] = time();
+        }
+    } else {
+        $metaAnalytics = $cached;
+        $info = $_SESSION[$cacheKey . '_info'] ?? [];
+        $metaPhoneName = $info['name'] ?? '';
+        $metaRating = $info['rating'] ?? 'GREEN';
+    }
+    
+    if ($metaAnalytics) {
+        foreach ($metaAnalytics as $dp) {
+            $metaLiveSent += (int)($dp['sent'] ?? 0);
+            $metaLiveDelivered += (int)($dp['delivered'] ?? 0);
+        }
+    }
+}
 
 include __DIR__ . '/../includes/user_header.php';
 ?>
@@ -211,6 +272,42 @@ include __DIR__ . '/../includes/user_header.php';
       <a href="/user/campaigns.php" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px;">
         📢 <span>New Campaign</span>
       </a>
+    </div>
+  </div>
+
+  <!-- Meta Official Cloud API Live Volume Banner -->
+  <div class="card" style="background:linear-gradient(135deg, rgba(37,211,102,0.07), rgba(6,182,212,0.07));border:1px solid rgba(37,211,102,0.3);padding:16px 20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:26px;">🌐</span>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <h3 style="margin:0;font-size:15px;font-weight:700;color:var(--text);">
+              Meta Official Cloud API — Live Outbound Volume
+            </h3>
+            <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,0.15);color:#22c55e;font-weight:700;">
+              🟢 Quality: <?= e($metaRating) ?>
+            </span>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px;">
+            WhatsApp Business Account: <strong style="color:var(--text);"><?= e($metaPhoneName ?: 'Bluee Ocean Rooftop Restaurant (+91 83909 09037)') ?></strong>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <div style="text-align:right;">
+          <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;">Meta Live Sent (30d)</div>
+          <div style="font-size:20px;font-weight:800;color:var(--accent);"><?= formatNumber($metaLiveSent) ?></div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;">Meta Delivered</div>
+          <div style="font-size:20px;font-weight:800;color:#22c55e;"><?= formatNumber($metaLiveDelivered) ?></div>
+        </div>
+        <a href="?refresh_meta=1&tab=<?= urlencode($tab) ?>" class="btn btn-secondary btn-sm" style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:5px 12px;">
+          🔄 <span>Refresh Meta Sync</span>
+        </a>
+      </div>
     </div>
   </div>
 
