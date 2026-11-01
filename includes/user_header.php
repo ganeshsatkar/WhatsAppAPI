@@ -18,6 +18,7 @@ $nav = [
     ['icon'=>'🗂️',  'label'=>'Lists & Tags', 'href'=>'/user/segments.php'],
     ['icon'=>'📋',  'label'=>'Templates',  'href'=>'/user/templates.php'],
     ['icon'=>'📢',  'label'=>'Campaigns',  'href'=>'/user/campaigns.php'],
+    ['icon'=>'📤',  'label'=>'Outbound Logs', 'href'=>'/user/outbound.php'],
     ['icon'=>'💬',  'label'=>'Inbox',      'href'=>'/user/inbox.php', 'badge'=>$openChats],
     ['icon'=>'🤖',  'label'=>'Chatbots',   'href'=>'/user/chatbots.php'],
     ['icon'=>'⏰',  'label'=>'Auto-replies', 'href'=>'/user/auto_replies.php'],

@@ -252,8 +252,11 @@ include __DIR__ . '/../includes/user_header.php';
       </div>
     </div>
     
-    <!-- Action buttons (Export CSV) -->
+    <!-- Action buttons (Export CSV & Outbound Logs) -->
     <div style="display:flex;gap:10px;align-items:center;">
+      <a href="/user/outbound.php" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px;">
+        📤 <span>Number-Wise Outbound Logs</span>
+      </a>
       <a href="?export=csv&from=<?= urlencode($fromDate) ?>&to=<?= urlencode($toDate) ?>" class="btn btn-secondary btn-sm" style="display:inline-flex;align-items:center;gap:6px;">
         📥 <span>Export CSV</span>
       </a>
