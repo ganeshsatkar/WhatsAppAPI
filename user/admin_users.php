@@ -34,6 +34,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         db()->run("DELETE FROM users WHERE id=? AND role!='superadmin'", [$id]);
         $msg = 'User deleted.';
     }
+    if ($action === 'impersonate') {
+        $targetId = (int)$_POST['user_id'];
+        $target = db()->row('SELECT * FROM users WHERE id = ?', [$targetId]);
+        if ($target) {
+            $_SESSION['superadmin_orig_id'] = $_SESSION['user_id'];
+            $_SESSION['user_id'] = $target['id'];
+            $_SESSION['user_role'] = $target['role'];
+            $_SESSION['user_name'] = $target['name'];
+            header('Location: /user/inbox.php');
+            exit;
+        }
+    }
 }
 
 $search = sanitize($_GET['q'] ?? '');
@@ -90,6 +102,10 @@ include __DIR__ . '/../includes/user_header.php';
           <td style="font-size:11px;color:var(--muted);"><?=date('M j, Y',strtotime($u['created_at']))?></td>
           <td>
             <div style="display:flex;gap:5px;flex-wrap:wrap;">
+              <form method="POST" style="display:inline;">
+                <?=csrfField()?><input type="hidden" name="action" value="impersonate"><input type="hidden" name="user_id" value="<?=$u['id']?>">
+                <button type="submit" class="btn btn-primary btn-sm" title="View portal as this user (see all inboxes, incoming chats, and reports)">👁️ View Portal</button>
+              </form>
               <button class="btn btn-secondary btn-sm" onclick="openPlanModal(<?=$u['id']?>,'<?=e(addslashes($u['name']))?>')">⬆ Plan</button>
               <?php if($ss['active']): ?><form method="POST" style="display:inline;" onsubmit="return confirm('End this user\'s plan now? They will be locked out.')"><?=csrfField()?><input type="hidden" name="action" value="cancel_plan"><input type="hidden" name="user_id" value="<?=$u['id']?>"><button type="submit" class="btn btn-secondary btn-sm" title="End plan now">⛔</button></form><?php endif; ?>
               <form method="POST" style="display:inline;">

@@ -329,6 +329,19 @@ textarea.form-control{resize:vertical;min-height:90px;}
 </aside>
 
 <div class="main-wrap">
+<?php if (!empty($_SESSION['superadmin_orig_id'])): ?>
+  <div style="background:linear-gradient(90deg, #7c3aed, #4f46e5);color:#fff;padding:8px 20px;font-size:12.5px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:9999;box-shadow:0 2px 10px rgba(0,0,0,0.25);">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-size:16px;">🛡️</span>
+      <div>
+        <strong>Super Admin Impersonation:</strong> Viewing live portal as <strong><?= e($user['name']) ?></strong> (<?= e($user['company_name'] ?: $user['email']) ?>). All live messages, incoming chats, templates, and logs are displayed for this account.
+      </div>
+    </div>
+    <a href="/user/switch_back.php" style="background:#fff;color:#7c3aed;padding:4px 12px;border-radius:6px;font-weight:700;text-decoration:none;font-size:12px;white-space:nowrap;">
+      ✕ Exit to Super Admin
+    </a>
+  </div>
+<?php endif; ?>
   <div class="topbar">
     <button type="button" class="tb-menu" onclick="toggleMenu()" aria-label="Open menu" aria-controls="sidebar">☰</button>
     <div class="topbar-title"><?= e($pageTitle ?? 'Dashboard') ?></div>

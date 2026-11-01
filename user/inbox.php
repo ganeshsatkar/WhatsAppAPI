@@ -7,15 +7,31 @@ require_once __DIR__ . '/../includes/wallet.php';
 
 requireLogin();
 $pageTitle = 'Inbox';
-$uid  = currentUser()['id'];
 $user = currentUser();
+$uid  = (int)$user['id'];
+$isSuperAdmin = ($user['role'] === 'superadmin');
+$clientUsers = [];
+
+if ($isSuperAdmin) {
+    $clientUsers = db()->all("SELECT id, name, company_name, email FROM users WHERE role != 'superadmin' ORDER BY id ASC");
+    $requestedUid = (int)($_GET['client_id'] ?? $_POST['client_id'] ?? $_SESSION['admin_selected_uid'] ?? 0);
+    if ($requestedUid && db()->row("SELECT id FROM users WHERE id=?", [$requestedUid])) {
+        $uid = $requestedUid;
+        $_SESSION['admin_selected_uid'] = $uid;
+    } else {
+        $waUser = db()->row("SELECT user_id FROM user_whatsapp_settings WHERE is_connected=1 LIMIT 1");
+        $uid = $waUser ? (int)$waUser['user_id'] : (!empty($clientUsers) ? (int)$clientUsers[0]['id'] : $uid);
+        $_SESSION['admin_selected_uid'] = $uid;
+    }
+}
+$GLOBALS['isSuperAdmin'] = $isSuperAdmin;
 
 // Message query shared by every action: sender name + the text of the message being quoted (if any).
 const MSG_SELECT = 'SELECT m.*,u.name AS sender_name,(SELECT q.content FROM messages q WHERE q.whatsapp_message_id=m.reply_to_wamid AND q.conversation_id=m.conversation_id LIMIT 1) AS quoted_text
                     FROM messages m LEFT JOIN users u ON u.id=m.sent_by';
 
 function ownConv(int $id, int $uid): ?array {
-    return db()->row('SELECT * FROM conversations WHERE id=? AND user_id=?', [$id, $uid]);
+    return db()->row('SELECT * FROM conversations WHERE id=? AND (user_id=? OR ? = 1)', [$id, $uid, ($GLOBALS['isSuperAdmin'] ?? false) ? 1 : 0]);
 }
 function windowInfo(int $convId): array {
     $left = conversationWindowSeconds($convId);
@@ -31,8 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'send_message') {
         $convId = (int)$_POST['conv_id'];
         $text   = trim($_POST['message'] ?? '');
-        $conv   = db()->row('SELECT * FROM conversations WHERE id=? AND user_id=?', [$convId, $uid]);
+        $conv   = db()->row('SELECT * FROM conversations WHERE id=? AND (user_id=? OR ? = 1)', [$convId, $uid, $isSuperAdmin ? 1 : 0]);
         if (!$conv || !$text) { echo json_encode(['success'=>false,'error'=>'Invalid conv or empty message']); exit; }
+        $cuid   = (int)$conv['user_id'];
 
         // WhatsApp only allows free-form replies within 24h of the customer's last message.
         if (!conversationWindowOpen($convId)) {
@@ -49,14 +66,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $replyWamid = $q['whatsapp_message_id'] ?? null;
         }
 
-        $wa  = WhatsAppService::forUser($uid);
+        $wa  = WhatsAppService::forUser($cuid);
         $res = ['success'=>false,'error'=>'WhatsApp API not connected. Go to Settings and connect your API.','message_id'=>null];
         if ($wa) $res = $wa->sendText($phone, $text, $replyWamid);
 
         $status = $res['success'] ? 'sent' : 'failed';
         $mid = db()->insert(
             'INSERT INTO messages (conversation_id,user_id,direction,message_type,content,whatsapp_message_id,reply_to_wamid,status,error_message,sent_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,NOW())',
-            [$convId,$uid,'outbound','text',$text,$res['message_id']??null,$replyWamid,$status,$res['success']?null:mb_substr((string)($res['error']??''),0,500),$uid]
+            [$convId,$cuid,'outbound','text',$text,$res['message_id']??null,$replyWamid,$status,$res['success']?null:mb_substr((string)($res['error']??''),0,500),$uid]
         );
         db()->run('UPDATE conversations SET last_message_at=NOW(),last_message_preview=? WHERE id=?',[mb_substr($text,0,100),$convId]);
         $msg = db()->row(MSG_SELECT.' WHERE m.id=?',[$mid]);
@@ -67,27 +84,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'send_template') {
         $convId = (int)$_POST['conv_id'];
         $tplId  = (int)$_POST['tpl_id'];
-        $conv   = db()->row('SELECT * FROM conversations WHERE id=? AND user_id=?',[$convId,$uid]);
-        $tpl    = db()->row('SELECT * FROM message_templates WHERE id=? AND user_id=?',[$tplId,$uid]);
-        if (!$conv||!$tpl){echo json_encode(['success'=>false]);exit;}
+        $conv   = db()->row('SELECT * FROM conversations WHERE id=? AND (user_id=? OR ? = 1)',[$convId,$uid, $isSuperAdmin ? 1 : 0]);
+        if (!$conv) { echo json_encode(['success'=>false,'error'=>'Conversation not found']); exit; }
+        $cuid   = (int)$conv['user_id'];
+        $tpl    = db()->row('SELECT * FROM message_templates WHERE id=? AND user_id=?',[$tplId,$cuid]);
+        if (!$tpl){echo json_encode(['success'=>false,'error'=>'Template not found']);exit;}
         if (($tpl['status'] ?? '') !== 'approved') {
             echo json_encode(['success'=>false,'error'=>'This template is not approved by WhatsApp yet.']); exit;
         }
-        $wa = WhatsAppService::forUser($uid);
+        $wa = WhatsAppService::forUser($cuid);
         if (!$wa) { echo json_encode(['success'=>false,'error'=>'WhatsApp API not connected. Go to Settings and connect your API.']); exit; }
 
         // Template messages are billed per message from the wallet.
         $category = $tpl['category'] ?: 'UTILITY';
-        if (!canAffordMessages($uid, 1, $category)) {
-            echo json_encode(['success'=>false,'error'=>'Insufficient wallet balance for a '.strtolower($category).' message ('.inr(msgPrice($uid,$category)).'). Recharge your wallet first.']); exit;
+        if (!canAffordMessages($cuid, 1, $category)) {
+            echo json_encode(['success'=>false,'error'=>'Insufficient wallet balance for a '.strtolower($category).' message ('.inr(msgPrice($cuid,$category)).'). Recharge your wallet first.']); exit;
         }
         $contact = db()->row('SELECT name FROM contacts WHERE id=?', [$conv['contact_id']]);
         $phone   = normalizePhone($conv['phone']);
         $comps   = buildTemplateComponents($tpl, $contact['name'] ?? '', $phone);
         $res     = $wa->sendTemplate($phone, $tpl['template_name'], $tpl['language'] ?? 'en', $comps);
-        if ($res['success']) debitWallet($uid, 1, $category, (int)$convId, 'inbox_template');
+        if ($res['success']) debitWallet($cuid, 1, $category, (int)$convId, 'inbox_template');
         $mid=db()->insert('INSERT INTO messages (conversation_id,user_id,direction,message_type,content,whatsapp_message_id,status,error_message,sent_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,NOW())',
-            [$convId,$uid,'outbound','template','[Template: '.$tpl['template_name'].']',$res['message_id']??null,$res['success']?'sent':'failed',$res['success']?null:mb_substr((string)($res['error']??''),0,500),$uid]);
+            [$convId,$cuid,'outbound','template','[Template: '.$tpl['template_name'].']',$res['message_id']??null,$res['success']?'sent':'failed',$res['success']?null:mb_substr((string)($res['error']??''),0,500),$uid]);
         db()->run('UPDATE conversations SET last_message_at=NOW(),last_message_preview=? WHERE id=?',['[Template sent]',$convId]);
         $msg=db()->row('SELECT * FROM messages WHERE id=?',[$mid]);
         echo json_encode(['success'=>true,'wa_ok'=>$res['success'],'wa_err'=>$res['error']??null,'message'=>$msg]);
@@ -99,8 +118,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $mediaType = in_array($_POST['media_type']??'', ['image','video','document','audio']) ? $_POST['media_type'] : 'image';
         $mediaUrl  = sanitize($_POST['media_url'] ?? '');
         $caption   = sanitize($_POST['caption'] ?? '');
-        $conv = db()->row('SELECT * FROM conversations WHERE id=? AND user_id=?', [$convId, $uid]);
+        $conv = ownConv($convId, $uid);
         if (!$conv || !$mediaUrl) { echo json_encode(['success'=>false,'error'=>'Invalid']); exit; }
+        $cuid = (int)$conv['user_id'];
         if (!filter_var($mediaUrl, FILTER_VALIDATE_URL) || !preg_match('#^https://#i', $mediaUrl)) { echo json_encode(['success'=>false,'error'=>'Enter a valid https:// media URL']); exit; }
 
         if (!conversationWindowOpen($convId)) {
@@ -108,14 +128,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $phone = normalizePhone($conv['phone']);
 
-        $wa  = WhatsAppService::forUser($uid);
+        $wa  = WhatsAppService::forUser($cuid);
         $res = ['success'=>false,'error'=>'API not connected'];
         if ($wa) $res = $wa->sendMediaUrl($phone, $mediaType, $mediaUrl, $caption);
 
         $icons = ['image'=>'📷','video'=>'🎥','document'=>'📄','audio'=>'🎵'];
         $label = ($icons[$mediaType]??'📎') . ' ' . ucfirst($mediaType) . ($caption?" — $caption":'');
         $mid = db()->insert('INSERT INTO messages (conversation_id,user_id,direction,message_type,content,media_url,whatsapp_message_id,status,error_message,sent_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,NOW())',
-            [$convId,$uid,'outbound',$mediaType,$label,$mediaUrl,$res['message_id']??null,$res['success']?'sent':'failed',$res['success']?null:mb_substr((string)($res['error']??''),0,500),$uid]);
+            [$convId,$cuid,'outbound',$mediaType,$label,$mediaUrl,$res['message_id']??null,$res['success']?'sent':'failed',$res['success']?null:mb_substr((string)($res['error']??''),0,500),$uid]);
         db()->run('UPDATE conversations SET last_message_at=NOW(),last_message_preview=? WHERE id=?',[$label,$convId]);
         $msg = db()->row('SELECT m.*,u.name as sender_name FROM messages m LEFT JOIN users u ON u.id=m.sent_by WHERE m.id=?',[$mid]);
         echo json_encode(['success'=>true,'message'=>$msg,'wa_ok'=>$res['success'],'wa_err'=>$res['error']??null]);
@@ -147,19 +167,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $mediaId  = sanitize($_POST['media_id'] ?? '');
         $caption  = sanitize($_POST['caption'] ?? '');
         $filename = sanitize($_POST['filename'] ?? '');
-        $conv     = db()->row('SELECT * FROM conversations WHERE id=? AND user_id=?', [$convId, $uid]);
+        $conv     = ownConv($convId, $uid);
         if (!$conv || !$mediaId) { echo json_encode(['success'=>false,'error'=>'Invalid']); exit; }
+        $cuid     = (int)$conv['user_id'];
         if (!conversationWindowOpen($convId)) {
             echo json_encode(['success'=>false,'window_closed'=>true,'error'=>'24-hour window closed — send an approved template instead.']); exit;
         }
         $phone = normalizePhone($conv['phone']);
-        $wa  = WhatsAppService::forUser($uid);
+        $wa  = WhatsAppService::forUser($cuid);
         $res = ['success'=>false,'error'=>'API not connected'];
         if ($wa) $res = $wa->sendMediaId($phone, $mediaType, $mediaId, $caption);
         $icons=['image'=>'📷','video'=>'🎥','document'=>'📄','audio'=>'🎵'];
         $label=($icons[$mediaType]??'📎').' '.ucfirst($mediaType).($filename?" ($filename)":'').($caption?" — $caption":'');
         $mid=db()->insert('INSERT INTO messages (conversation_id,user_id,direction,message_type,content,whatsapp_message_id,media_id,status,error_message,sent_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,NOW())',
-            [$convId,$uid,'outbound',$mediaType,$label,$res['message_id']??null,$mediaId,$res['success']?'sent':'failed',$res['success']?null:mb_substr((string)($res['error']??''),0,500),$uid]);
+            [$convId,$cuid,'outbound',$mediaType,$label,$res['message_id']??null,$mediaId,$res['success']?'sent':'failed',$res['success']?null:mb_substr((string)($res['error']??''),0,500),$uid]);
         db()->run('UPDATE conversations SET last_message_at=NOW(),last_message_preview=? WHERE id=?',[$label,$convId]);
         $msg=db()->row('SELECT m.*,u.name as sender_name FROM messages m LEFT JOIN users u ON u.id=m.sent_by WHERE m.id=?',[$mid]);
         echo json_encode(['success'=>true,'message'=>$msg,'wa_ok'=>$res['success'],'wa_err'=>$res['error']??null]);
@@ -169,9 +190,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'send_note') {
         $convId=(int)$_POST['conv_id'];
         $note=trim($_POST['note']??'');
-        if($note&&$convId&&ownConv($convId,$uid)){
+        $conv=ownConv($convId,$uid);
+        if($note&&$convId&&$conv){
+            $cuid=(int)$conv['user_id'];
             $mid=db()->insert('INSERT INTO messages (conversation_id,user_id,direction,message_type,content,is_note,status,sent_by,created_at) VALUES (?,?,?,?,?,1,?,?,NOW())',
-                [$convId,$uid,'outbound','text',$note,'sent',$uid]);
+                [$convId,$cuid,'outbound','text',$note,'sent',$uid]);
             $msg=db()->row('SELECT m.*,u.name as sender_name FROM messages m LEFT JOIN users u ON u.id=m.sent_by WHERE m.id=?',[$mid]);
             echo json_encode(['success'=>true,'message'=>$msg]);
         } else echo json_encode(['success'=>false]);
@@ -198,8 +221,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'load_conv') {
         $convId=(int)$_POST['conv_id'];
-        $conv=db()->row('SELECT cv.*,c.name as contact_name,c.phone,c.email,c.opt_in FROM conversations cv JOIN contacts c ON c.id=cv.contact_id WHERE cv.id=? AND cv.user_id=?',[$convId,$uid]);
+        $conv=db()->row('SELECT cv.*,c.name as contact_name,c.phone,c.email,c.opt_in FROM conversations cv JOIN contacts c ON c.id=cv.contact_id WHERE cv.id=? AND (cv.user_id=? OR ? = 1)',[$convId,$uid, $isSuperAdmin ? 1 : 0]);
         if(!$conv){echo json_encode(['success'=>false]);exit;}
+        $convUid = (int)$conv['user_id'];
         // Newest 100 messages (oldest first for display); older ones load on demand.
         $msgs=db()->all('SELECT * FROM ('.MSG_SELECT.' WHERE m.conversation_id=? ORDER BY m.id DESC LIMIT 100) t ORDER BY t.id ASC',[$convId]);
         $total=db()->count('SELECT COUNT(*) FROM messages WHERE conversation_id=?',[$convId]);
@@ -322,14 +346,14 @@ include __DIR__ . '/../includes/user_header.php';
 ?>
 <style>
 @media(min-width: 769px) {
-  html, body { height: 100%; overflow: hidden; }
-  .main-wrap { height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+  html, body { height: 100% !important; max-height: 100vh !important; overflow: hidden !important; margin: 0; padding: 0; }
+  .main-wrap { height: 100vh !important; max-height: 100vh !important; overflow: hidden !important; display: flex; flex-direction: column; }
   .topbar { flex-shrink: 0; }
-  .page-content { flex: 1; min-height: 0; padding: 10px 18px 12px !important; overflow: hidden !important; display: flex !important; flex-direction: column !important; }
-  .ib { flex: 1; min-height: 0; height: 100% !important; margin: 0 !important; }
+  .page-content { flex: 1 1 0 !important; min-height: 0 !important; padding: 8px 16px 10px !important; overflow: hidden !important; display: flex !important; flex-direction: column !important; }
+  .ib { flex: 1 1 0 !important; min-height: 0 !important; height: 100% !important; max-height: 100% !important; margin: 0 !important; }
 }
 
-.ib{display:grid;grid-template-columns:296px 1fr 268px;height:calc(100vh - 100px);min-height:500px;border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-top:-4px;background:var(--bg);}
+.ib{display:grid;grid-template-columns:290px 1fr 270px;height:100%;min-height:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg);}
 
 /* LEFT */
 .il{display:flex;flex-direction:column;background:var(--sidebar);border-right:1px solid var(--border);}
@@ -360,18 +384,18 @@ include __DIR__ . '/../includes/user_header.php';
 .new-btn:hover{opacity:.88;}
 
 /* MIDDLE */
-.im{display:flex;flex-direction:column;background:var(--bg);overflow:hidden;min-height:0;}
-.im-header{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--sidebar);flex-shrink:0;}
-.im-hinfo{flex:1 1 170px;min-width:150px;overflow:hidden;}
+.im{display:flex;flex-direction:column;background:var(--bg);overflow:hidden;min-height:0;height:100%;position:relative;}
+.im-header{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--sidebar);flex-shrink:0;}
+.im-hinfo{flex:1 1 170px;min-width:140px;overflow:hidden;}
 .im-hname{font-weight:800;font-size:14px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .im-hmeta{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.im-hbtns{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;flex:0 1 auto;max-width:68%;}
-.hb{padding:5px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--border);color:var(--text2);background:var(--surface2);font-family:'Cabinet Grotesk',sans-serif;transition:all .15s;white-space:nowrap;}
+.im-hbtns{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;flex:0 1 auto;max-width:70%;}
+.hb{padding:4px 9px;border-radius:6px;font-size:11.5px;font-weight:700;cursor:pointer;border:1px solid var(--border);color:var(--text2);background:var(--surface2);font-family:'Cabinet Grotesk',sans-serif;transition:all .15s;white-space:nowrap;}
 .hb:hover{border-color:var(--accent);color:var(--accent);}
 .hb.on{background:var(--accent-dim);border-color:rgba(37,211,102,0.3);color:var(--accent);}
 .hb.res{color:var(--danger);}
 .hb.res:hover{border-color:var(--danger);}
-.im-msgs{flex:1;min-height:0;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:4px;scrollbar-width:thin;scrollbar-color:var(--surface3) transparent;}
+.im-msgs{flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;padding:12px 14px;display:flex;flex-direction:column;gap:5px;scrollbar-width:thin;scrollbar-color:var(--surface3) transparent;}
 /* window bar, quotes, reactions, calls */
 .winbar{display:none;align-items:center;gap:10px;padding:8px 14px;font-size:12.5px;border-bottom:1px solid var(--border);}
 .winbar.open{display:flex;background:rgba(37,211,102,.08);color:var(--accent);}
@@ -476,6 +500,20 @@ include __DIR__ . '/../includes/user_header.php';
   <!-- ── LEFT PANEL ── -->
   <div class="il">
     <div class="il-top">
+      <?php if ($isSuperAdmin && !empty($clientUsers)): ?>
+      <div style="margin-bottom:10px;background:rgba(124,58,237,0.08);padding:8px 10px;border-radius:8px;border:1px solid rgba(124,58,237,0.3);">
+        <label style="font-size:10.5px;font-weight:700;color:var(--purple);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">
+          🛡️ Admin Viewing Account:
+        </label>
+        <select class="form-control" style="width:100%;font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--purple);background:var(--surface2);color:var(--text);" onchange="location.href='?client_id='+this.value">
+          <?php foreach($clientUsers as $cu): ?>
+            <option value="<?= $cu['id'] ?>" <?= $uid === (int)$cu['id'] ? 'selected' : '' ?>>
+              <?= e($cu['name']) ?> (<?= e($cu['company_name'] ?: $cu['email']) ?>)
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <?php endif; ?>
       <button class="new-btn" onclick="openModal('newChatM')">＋ New Chat</button>
       <div class="il-search">
         <span style="font-size:13px;color:var(--muted);">⌕</span>
@@ -527,7 +565,7 @@ include __DIR__ . '/../includes/user_header.php';
       <button class="btn btn-primary" onclick="openModal('newChatM')" style="margin-top:6px;">＋ New Chat</button>
     </div>
 
-    <div id="chatArea" style="display:none;flex-direction:column;height:100%;overflow:hidden;">
+    <div id="chatArea" style="display:none;flex-direction:column;height:100%;min-height:0;flex:1 1 0;overflow:hidden;">
       <!-- Header -->
       <div class="im-header">
         <button class="im-back" onclick="closeConvMobile()" aria-label="Back to chats">←</button>
@@ -731,6 +769,9 @@ async function loadConv(id) {
   const ca=document.getElementById('chatArea');
   ca.style.display='flex';
   ca.style.flexDirection='column';
+  ca.style.height='100%';
+  ca.style.minHeight='0';
+  ca.style.flex='1 1 0';
   document.getElementById('ib').classList.add('chat-open');
   document.body.classList.add('inbox-chat');
   if(window.innerWidth<=768 && location.hash!=='#chat') history.pushState({chat:id},'','#chat');
@@ -794,10 +835,17 @@ function buildMsg(m) {
     const directUrl=/^https:\/\//i.test(m.media_url||'')?m.media_url:'';
     const displayUrl=esc(((m.direction==='inbound'||m.media_id)&&m.id)?proxyUrl:directUrl);
 
+    // If text is just the default media label (e.g. "📷 Image"), clear it so it doesn't show twice under the media
+    if(/^📷\s*Image\s*$/i.test(m.content||'')) {
+      text='';
+    } else if(text.startsWith('📷 Image — ')) {
+      text=text.replace(/^📷 Image — /,'');
+    }
+
     if(m.message_type==='image'){
       mediaBubble=`<div style="margin-bottom:6px;cursor:pointer;" onclick="openImg('${displayUrl}')">
-        <img src="${displayUrl}" style="max-width:240px;max-height:200px;border-radius:10px;display:block;"
-          onerror="this.outerHTML='<div style=\'background:rgba(255,255,255,0.06);border-radius:9px;padding:12px 14px;\' ><span style=\'font-size:22px;\'>📷</span> <span style=\'font-size:12px;color:#7ab59a;\'>Image received · <a href=\'${displayUrl}\' target=\'_blank\' style=\'color:var(--accent);\'>View</a></span></div>'">
+        <img src="${displayUrl}" style="max-width:240px;max-height:220px;border-radius:10px;display:block;background:rgba(255,255,255,0.04);object-fit:cover;" loading="lazy"
+          onerror="this.onerror=null;this.parentElement.innerHTML='<div style=\'background:rgba(255,255,255,0.06);border-radius:9px;padding:12px 14px;display:flex;align-items:center;gap:10px;\'><span style=\'font-size:24px;\'>📷</span><div><div style=\'font-size:12px;font-weight:700;color:var(--text);\'>Photo Received</div><a href=\\'${displayUrl}\\' target=\\'_blank\\' style=\'font-size:11px;color:var(--accent);text-decoration:underline;\'>View / Download</a></div></div>';">
       </div>`;
     } else if(m.message_type==='video'){
       mediaBubble=`<video src="${displayUrl}" controls style="max-width:240px;border-radius:10px;display:block;margin-bottom:6px;" preload="metadata"></video>`;
@@ -810,6 +858,17 @@ function buildMsg(m) {
         <div style="min-width:0;"><div style="color:#e2ffd9;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${fname}</div>
         <div style="color:rgba(255,255,255,0.4);font-size:11px;margin-top:2px;">Tap to open</div></div></a>`;
     }
+  }
+
+  // Handle Unsupported or empty messages gracefully
+  if(!text && !mediaBubble && !isNote && !isCall && !isTpl) {
+    text = `<div style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);background:rgba(255,255,255,0.04);padding:5px 9px;border-radius:6px;border:1px dashed var(--border);">
+      <span>ℹ️</span> <span>Unsupported format (sticker / reaction / location / poll)</span>
+    </div>`;
+  } else if(/\[UNSUPPORTED\]/i.test(text)) {
+    text = `<div style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);background:rgba(255,255,255,0.04);padding:5px 9px;border-radius:6px;border:1px dashed var(--border);">
+      <span>ℹ️</span> <span>Unsupported format (sticker / reaction / location / poll)</span>
+    </div>`;
   }
 
   const ticks={'sent':'<span class="tick-sent">✓</span>','delivered':'<span class="tick-delivered">✓✓</span>','read':'<span class="tick-read">✓✓</span>','failed':'<span style="color:var(--danger);">✗ failed</span>'};

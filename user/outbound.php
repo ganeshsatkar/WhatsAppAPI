@@ -5,7 +5,23 @@ require_once __DIR__ . '/../includes/functions.php';
 
 requireLogin();
 $pageTitle = 'Outbound & Template Reports';
-$uid = (int)currentUser()['id'];
+$user = currentUser();
+$uid  = (int)$user['id'];
+$isSuperAdmin = ($user['role'] === 'superadmin');
+$clientUsers = [];
+
+if ($isSuperAdmin) {
+    $clientUsers = db()->all("SELECT id, name, company_name, email FROM users WHERE role != 'superadmin' ORDER BY id ASC");
+    $requestedUid = (int)($_GET['client_id'] ?? $_POST['client_id'] ?? $_SESSION['admin_selected_uid'] ?? 0);
+    if ($requestedUid && db()->row("SELECT id FROM users WHERE id=?", [$requestedUid])) {
+        $uid = $requestedUid;
+        $_SESSION['admin_selected_uid'] = $uid;
+    } else {
+        $waUser = db()->row("SELECT user_id FROM user_whatsapp_settings WHERE is_connected=1 LIMIT 1");
+        $uid = $waUser ? (int)$waUser['user_id'] : (!empty($clientUsers) ? (int)$clientUsers[0]['id'] : $uid);
+        $_SESSION['admin_selected_uid'] = $uid;
+    }
+}
 
 // Active View Tab: 'templates' (सगळे टेम्पलेट्स), 'recipients' (कुणाला किती पाठवले), 'logs' (सर्व लॉग्स)
 $tab = sanitize($_GET['tab'] ?? 'templates');
@@ -150,20 +166,45 @@ $allTemplateStats = db()->all("SELECT mt.id as tpl_id, mt.template_name, mt.cate
     ORDER BY total_sent DESC, mt.template_name ASC", [$uid]);
 
 // --- 2. Query: Recipient-Wise Aggregated Summary ("कुणाला किती पाठवले") ---
-$recipientStats = db()->all("SELECT cl.phone,
-    COALESCE((SELECT name FROM contacts WHERE user_id = cl.user_id AND phone = cl.phone LIMIT 1), (SELECT c2.name FROM contacts c2 WHERE c2.id = cl.contact_id LIMIT 1), 'Customer') as contact_name,
-    COUNT(cl.id) as total_sent,
-    SUM(CASE WHEN cl.status IN ('delivered', 'read') THEN 1 ELSE 0 END) as delivered,
-    SUM(CASE WHEN cl.status = 'read' THEN 1 ELSE 0 END) as read_count,
-    SUM(CASE WHEN cl.status = 'failed' THEN 1 ELSE 0 END) as failed_count,
-    MAX(COALESCE(cl.sent_at, cl.created_at)) as last_sent_at,
-    GROUP_CONCAT(DISTINCT mt.template_name ORDER BY mt.template_name SEPARATOR ', ') as templates_used
-    FROM campaign_logs cl
-    LEFT JOIN campaigns camp ON camp.id = cl.campaign_id
-    LEFT JOIN message_templates mt ON mt.id = camp.template_id
-    WHERE $whereClause
-    GROUP BY cl.phone
-    ORDER BY total_sent DESC, last_sent_at DESC", $params);
+if (!empty($tplFilter)) {
+    $recipientStats = db()->all("SELECT cl.phone,
+        COALESCE((SELECT name FROM contacts WHERE user_id = cl.user_id AND phone = cl.phone LIMIT 1), (SELECT c2.name FROM contacts c2 WHERE c2.id = cl.contact_id LIMIT 1), 'Customer') as contact_name,
+        COUNT(cl.id) as total_sent,
+        SUM(CASE WHEN cl.status IN ('delivered', 'read') THEN 1 ELSE 0 END) as delivered,
+        SUM(CASE WHEN cl.status = 'read' THEN 1 ELSE 0 END) as read_count,
+        SUM(CASE WHEN cl.status = 'failed' THEN 1 ELSE 0 END) as failed_count,
+        MAX(COALESCE(cl.sent_at, cl.created_at)) as last_sent_at,
+        GROUP_CONCAT(DISTINCT mt.template_name ORDER BY mt.template_name SEPARATOR ', ') as templates_used
+        FROM campaign_logs cl
+        LEFT JOIN campaigns camp ON camp.id = cl.campaign_id
+        LEFT JOIN message_templates mt ON mt.id = camp.template_id
+        WHERE $whereClause
+        GROUP BY cl.phone
+        ORDER BY total_sent DESC, last_sent_at DESC", $params);
+} else {
+    $cWhere = ['c.user_id = ?'];
+    $cParams = [$uid];
+    if (!empty($search)) {
+        $cWhere[] = '(c.phone LIKE ? OR c.name LIKE ?)';
+        $cParams[] = '%' . $search . '%';
+        $cParams[] = '%' . $search . '%';
+    }
+    $cWhereStr = implode(' AND ', $cWhere);
+    $recipientStats = db()->all("SELECT c.phone, c.name as contact_name,
+        COUNT(DISTINCT cl.id) as total_sent,
+        SUM(CASE WHEN cl.status IN ('delivered', 'read') THEN 1 ELSE 0 END) as delivered,
+        SUM(CASE WHEN cl.status = 'read' THEN 1 ELSE 0 END) as read_count,
+        SUM(CASE WHEN cl.status = 'failed' THEN 1 ELSE 0 END) as failed_count,
+        COALESCE(MAX(COALESCE(cl.sent_at, cl.created_at)), (SELECT cv.last_message_at FROM conversations cv WHERE cv.contact_id = c.id LIMIT 1), c.created_at) as last_sent_at,
+        GROUP_CONCAT(DISTINCT mt.template_name ORDER BY mt.template_name SEPARATOR ', ') as templates_used
+        FROM contacts c
+        LEFT JOIN campaign_logs cl ON (cl.phone = c.phone OR cl.contact_id = c.id) AND cl.user_id = c.user_id
+        LEFT JOIN campaigns camp ON camp.id = cl.campaign_id
+        LEFT JOIN message_templates mt ON mt.id = camp.template_id
+        WHERE $cWhereStr
+        GROUP BY c.id, c.phone, c.name
+        ORDER BY total_sent DESC, last_sent_at DESC", $cParams);
+}
 
 // --- 3. Query: Detailed Logs (Pagination) ---
 $page  = max(1, (int)($_GET['p'] ?? 1));
@@ -248,6 +289,25 @@ if ($was && !empty($was['access_token']) && !empty($was['business_account_id']))
 
 include __DIR__ . '/../includes/user_header.php';
 ?>
+
+<?php if ($isSuperAdmin && !empty($clientUsers)): ?>
+<div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.3);padding:10px 16px;border-radius:10px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span style="font-size:18px;">🛡️</span>
+    <div>
+      <strong style="color:var(--purple);font-size:13px;">Super Admin View — Select Client Account:</strong>
+      <div style="font-size:11.5px;color:var(--muted);">Showing outbound campaigns, template performance, and recipient numbers for this account.</div>
+    </div>
+  </div>
+  <select class="form-control" style="width:auto;min-width:280px;font-size:13px;padding:6px 12px;border:1px solid var(--purple);background:var(--surface2);color:var(--text);" onchange="location.href='?client_id='+this.value">
+    <?php foreach ($clientUsers as $cu): ?>
+      <option value="<?= $cu['id'] ?>" <?= $uid === (int)$cu['id'] ? 'selected' : '' ?>>
+        <?= e($cu['name']) ?> (<?= e($cu['company_name'] ?: $cu['email']) ?>)
+      </option>
+    <?php endforeach; ?>
+  </select>
+</div>
+<?php endif; ?>
 
 <div style="display:flex;flex-direction:column;gap:20px;margin-bottom:30px;">
 

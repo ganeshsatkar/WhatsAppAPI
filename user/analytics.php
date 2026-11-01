@@ -6,7 +6,23 @@ require_once __DIR__ . '/../includes/functions.php';
 requireLogin();
 $pageTitle = 'Analytics';
 requireFeature('advanced_analytics', 'Analytics');
-$uid = (int)currentUser()['id'];
+$user = currentUser();
+$uid  = (int)$user['id'];
+$isSuperAdmin = ($user['role'] === 'superadmin');
+$clientUsers = [];
+
+if ($isSuperAdmin) {
+    $clientUsers = db()->all("SELECT id, name, company_name, email FROM users WHERE role != 'superadmin' ORDER BY id ASC");
+    $requestedUid = (int)($_GET['client_id'] ?? $_POST['client_id'] ?? $_SESSION['admin_selected_uid'] ?? 0);
+    if ($requestedUid && db()->row("SELECT id FROM users WHERE id=?", [$requestedUid])) {
+        $uid = $requestedUid;
+        $_SESSION['admin_selected_uid'] = $uid;
+    } else {
+        $waUser = db()->row("SELECT user_id FROM user_whatsapp_settings WHERE is_connected=1 LIMIT 1");
+        $uid = $waUser ? (int)$waUser['user_id'] : (!empty($clientUsers) ? (int)$clientUsers[0]['id'] : $uid);
+        $_SESSION['admin_selected_uid'] = $uid;
+    }
+}
 
 // --- Date Range Handling ---
 $preset = sanitize($_GET['preset'] ?? '');
@@ -241,6 +257,25 @@ $contactSources = db()->all("SELECT source, COUNT(*) as cnt FROM contacts WHERE 
 
 include __DIR__ . '/../includes/user_header.php';
 ?>
+
+<?php if ($isSuperAdmin && !empty($clientUsers)): ?>
+<div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.3);padding:10px 16px;border-radius:10px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span style="font-size:18px;">🛡️</span>
+    <div>
+      <strong style="color:var(--purple);font-size:13px;">Super Admin View — Select Client Account:</strong>
+      <div style="font-size:11.5px;color:var(--muted);">Viewing message metrics, day-wise volumes, delivery rates, and analytics for this account.</div>
+    </div>
+  </div>
+  <select class="form-control" style="width:auto;min-width:280px;font-size:13px;padding:6px 12px;border:1px solid var(--purple);background:var(--surface2);color:var(--text);" onchange="location.href='?client_id='+this.value">
+    <?php foreach ($clientUsers as $cu): ?>
+      <option value="<?= $cu['id'] ?>" <?= $uid === (int)$cu['id'] ? 'selected' : '' ?>>
+        <?= e($cu['name']) ?> (<?= e($cu['company_name'] ?: $cu['email']) ?>)
+      </option>
+    <?php endforeach; ?>
+  </select>
+</div>
+<?php endif; ?>
 
 <div style="display:flex;flex-direction:column;gap:18px;margin-bottom:24px;">
 
